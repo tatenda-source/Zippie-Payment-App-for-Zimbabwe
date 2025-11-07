@@ -13,8 +13,7 @@ import {
   Calendar,
   User,
   CreditCard,
-  ArrowDownLeft,
-  ArrowUpRight
+  ArrowDownLeft
 } from 'lucide-react';
 
 interface PaymentSuccessProps {

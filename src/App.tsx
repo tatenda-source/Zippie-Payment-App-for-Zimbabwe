@@ -1,154 +1,149 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { HomeDashboard } from './components/HomeDashboard';
-import { SendMoney } from './components/SendMoney';
-import { RequestPayment } from './components/RequestPayment';
-import { TransactionHistory } from './components/TransactionHistory';
-import { PaymentSuccess } from './components/PaymentSuccess';
+import { StockDashboard } from './components/StockDashboard';
+import { StockSearch } from './components/StockSearch';
+import { StockDetail } from './components/StockDetail';
+import { Watchlist } from './components/Watchlist';
+import type { WatchlistItem } from './types/stock';
 
-export type Account = {
-  id: string;
-  name: string;
-  type: 'mobile' | 'bank';
-  balance: number;
-  currency: 'USD' | 'ZWL';
-  color: string;
-};
+export type Screen = 'home' | 'search' | 'detail' | 'watchlist';
+export type StockQuote = any; // Re-export for components
+export { type WatchlistItem };
 
-export type Transaction = {
-  id: string;
-  type: 'sent' | 'received' | 'request';
-  amount: number;
-  currency: 'USD' | 'ZWL';
-  recipient: string;
-  sender: string;
-  description: string;
-  status: 'completed' | 'pending' | 'failed';
-  date: string;
-  paymentMethod?: string;
-};
-
-export type Screen = 'home' | 'send' | 'request' | 'history' | 'success';
+interface ScreenData {
+  symbol?: string;
+  [key: string]: any;
+}
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
-  const [successData, setSuccessData] = useState<any>(null);
-
-  // Memoized mock data to prevent unnecessary re-renders
-  const mockAccounts: Account[] = useMemo(() => [
-    { id: '1', name: 'EcoCash', type: 'mobile', balance: 250.50, currency: 'USD', color: '#f59e0b' },
-    { id: '2', name: 'OneMoney', type: 'mobile', balance: 1500.00, currency: 'ZWL', color: '#ef4444' },
-    { id: '3', name: 'Steward Bank', type: 'bank', balance: 850.25, currency: 'USD', color: '#3b82f6' },
-    { id: '4', name: 'CBZ ZIPIT', type: 'bank', balance: 2250.00, currency: 'ZWL', color: '#10b981' },
-  ], []);
-
-  const mockTransactions: Transaction[] = useMemo(() => [
-    {
-      id: '1',
-      type: 'received',
-      amount: 50.00,
-      currency: 'USD',
-      recipient: 'You',
-      sender: 'Tendai Mukamuri',
-      description: 'Lunch money',
-      status: 'completed',
-      date: '2025-01-08T10:30:00Z',
-      paymentMethod: 'EcoCash'
-    },
-    {
-      id: '2',
-      type: 'sent',
-      amount: 25.00,
-      currency: 'USD',
-      recipient: 'Chipo Nhongo',
-      sender: 'You',
-      description: 'Coffee',
-      status: 'completed',
-      date: '2025-01-07T14:15:00Z',
-      paymentMethod: 'Steward Bank'
-    },
-    {
-      id: '3',
-      type: 'request',
-      amount: 75.00,
-      currency: 'USD',
-      recipient: 'Tadiwa Mazuva',
-      sender: 'You',
-      description: 'Dinner split',
-      status: 'pending',
-      date: '2025-01-07T19:45:00Z'
+  const [screenData, setScreenData] = useState<ScreenData>({});
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>(() => {
+    // Load watchlist from localStorage
+    try {
+      const saved = localStorage.getItem('stockWatchlist');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
     }
-  ], []);
+  });
 
-  // Memoized callback functions to prevent unnecessary re-renders
-  const handleSendSuccess = useCallback((data: any) => {
-    setSuccessData(data);
-    setCurrentScreen('success');
-  }, []);
+  // Save watchlist to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('stockWatchlist', JSON.stringify(watchlist));
+    } catch (error) {
+      console.error('Error saving watchlist to localStorage:', error);
+    }
+  }, [watchlist]);
 
-  const handleRequestSuccess = useCallback((data: any) => {
-    setSuccessData(data);
-    setCurrentScreen('success');
-  }, []);
-
-  const handleNavigate = useCallback((screen: Screen) => {
+  const handleNavigate = useCallback((screen: Screen, data?: ScreenData) => {
     setCurrentScreen(screen);
+    if (data) {
+      setScreenData(data);
+    }
   }, []);
 
   const handleBack = useCallback(() => {
     setCurrentScreen('home');
+    setScreenData({});
   }, []);
 
-  // Memoized screen renderer to prevent unnecessary re-renders
+  const handleAddToWatchlist = useCallback((symbol: string) => {
+    setWatchlist(prev => {
+      // Check if already in watchlist
+      if (prev.some(item => item.symbol === symbol)) {
+        return prev;
+      }
+      return [...prev, {
+        symbol,
+        addedAt: new Date().toISOString(),
+      }];
+    });
+  }, []);
+
+  const handleRemoveFromWatchlist = useCallback((symbol: string) => {
+    setWatchlist(prev => prev.filter(item => item.symbol !== symbol));
+  }, []);
+
+  const handleSelectStock = useCallback((symbol: string) => {
+    handleNavigate('detail', { symbol });
+  }, [handleNavigate]);
+
+  const watchlistSymbols = useMemo(() => 
+    watchlist.map(item => item.symbol),
+    [watchlist]
+  );
+
+  // Memoized screen renderer
   const renderScreen = useMemo(() => {
     switch (currentScreen) {
       case 'home':
         return (
-          <HomeDashboard
-            accounts={mockAccounts}
-            transactions={mockTransactions}
+          <StockDashboard
+            watchlist={watchlist}
             onNavigate={handleNavigate}
+            onAddToWatchlist={handleAddToWatchlist}
+            onRemoveFromWatchlist={handleRemoveFromWatchlist}
           />
         );
-      case 'send':
+      case 'search':
         return (
-          <SendMoney
-            accounts={mockAccounts}
+          <StockSearch
             onBack={handleBack}
-            onSuccess={handleSendSuccess}
+            onSelectStock={handleSelectStock}
+            watchlist={watchlistSymbols}
+            onAddToWatchlist={handleAddToWatchlist}
+            onRemoveFromWatchlist={handleRemoveFromWatchlist}
           />
         );
-      case 'request':
-        return (
-          <RequestPayment
+      case 'detail':
+        return screenData.symbol ? (
+          <StockDetail
+            symbol={screenData.symbol}
             onBack={handleBack}
-            onSuccess={handleRequestSuccess}
+            watchlist={watchlistSymbols}
+            onAddToWatchlist={handleAddToWatchlist}
+            onRemoveFromWatchlist={handleRemoveFromWatchlist}
+          />
+        ) : (
+          <StockDashboard
+            watchlist={watchlist}
+            onNavigate={handleNavigate}
+            onAddToWatchlist={handleAddToWatchlist}
+            onRemoveFromWatchlist={handleRemoveFromWatchlist}
           />
         );
-      case 'history':
+      case 'watchlist':
         return (
-          <TransactionHistory
-            transactions={mockTransactions}
+          <Watchlist
+            watchlist={watchlist}
             onBack={handleBack}
-          />
-        );
-      case 'success':
-        return (
-          <PaymentSuccess
-            data={successData}
-            onBack={handleBack}
+            onNavigate={handleNavigate}
+            onRemoveFromWatchlist={handleRemoveFromWatchlist}
           />
         );
       default:
         return (
-          <HomeDashboard
-            accounts={mockAccounts}
-            transactions={mockTransactions}
+          <StockDashboard
+            watchlist={watchlist}
             onNavigate={handleNavigate}
+            onAddToWatchlist={handleAddToWatchlist}
+            onRemoveFromWatchlist={handleRemoveFromWatchlist}
           />
         );
     }
-  }, [currentScreen, mockAccounts, mockTransactions, handleNavigate, handleBack, handleSendSuccess, handleRequestSuccess, successData]);
+  }, [
+    currentScreen,
+    screenData,
+    watchlist,
+    watchlistSymbols,
+    handleNavigate,
+    handleBack,
+    handleAddToWatchlist,
+    handleRemoveFromWatchlist,
+    handleSelectStock,
+  ]);
 
   return (
     <ErrorBoundary>

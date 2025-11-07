@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -13,9 +13,7 @@ import {
   Check,
   X,
   Search,
-  Filter,
-  Download,
-  Share2
+  Download
 } from 'lucide-react';
 import type { Transaction } from '../App';
 
@@ -83,7 +81,7 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
       if (!groups[date]) {
         groups[date] = [];
       }
-      groups[date].push(transaction);
+      groups[date]?.push(transaction);
     });
     
     return groups;
@@ -147,19 +145,19 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center">
             <div className="text-lg font-semibold text-green-600">
-              {totalsByStatus.completed || 0}
+              {totalsByStatus['completed'] || 0}
             </div>
             <div className="text-xs text-gray-500">Completed</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-yellow-600">
-              {totalsByStatus.pending || 0}
+              {totalsByStatus['pending'] || 0}
             </div>
             <div className="text-xs text-gray-500">Pending</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-red-600">
-              {totalsByStatus.failed || 0}
+              {totalsByStatus['failed'] || 0}
             </div>
             <div className="text-xs text-gray-500">Failed</div>
           </div>
@@ -226,7 +224,7 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
               </div>
               
               <div className="space-y-3">
-                {groupedTransactions[dateString].map((transaction) => (
+                {groupedTransactions[dateString]?.map((transaction) => (
                   <Card key={transaction.id} className="border-0 shadow-sm">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
