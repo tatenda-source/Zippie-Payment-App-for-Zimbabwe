@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { ArrowLeft, Star, TrendingUp, TrendingDown, Brain, BarChart3, Activity } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { stockApi } from '../services/stockApi';
 import { predictionService } from '../services/predictionService';
 import type { StockQuote, StockHistoricalData, StockPrediction, TechnicalIndicator, Timeframe } from '../types/stock';

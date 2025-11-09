@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -22,7 +22,7 @@ interface PaymentSuccessProps {
 }
 
 export function PaymentSuccess({ data, onBack }: PaymentSuccessProps) {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
 
   const formatCurrency = (amount: number, currency: 'USD' | 'ZWL') => {
     if (currency === 'USD') {

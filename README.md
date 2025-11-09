@@ -1,305 +1,274 @@
-# AI Stock Market Predictor 📈
+# Hippie Fintech Platform 🚀
 
-A modern, AI-powered stock market prediction application built with React and TypeScript. Features real-time stock data, AI-powered price predictions, technical indicators, and comprehensive market analysis tools for investors.
+**Integrated P2P Payments + Stock Market Insights**
+
+A comprehensive fintech platform that combines peer-to-peer payments with AI-powered stock market predictions. Send money, track transactions, and get intelligent investment insights all in one app.
 
 ## ✨ Features
 
-- 📊 **Real-Time Stock Data** - Get live quotes and market data
-- 🤖 **AI-Powered Predictions** - Machine learning models predict future stock prices
-- 📈 **Interactive Charts** - Beautiful charts with multiple timeframes
-- 🔍 **Stock Search** - Search and discover stocks by symbol or company name
-- ⭐ **Watchlist** - Track your favorite stocks
-- 📉 **Technical Indicators** - RSI, MACD, Moving Averages, and more
-- 🎯 **Trend Analysis** - Bullish/Bearish/Neutral predictions with confidence scores
-- 📱 **Mobile-First** - Optimized for mobile devices
+### 💸 P2P Payments
+- User registration and authentication (JWT)
+- Multiple account management (USD, ZWL)
+- Send money to other users
+- Request payments
+- Transaction history and filtering
+- Real-time balance tracking
+- QR code payments (UI ready)
+
+### 📈 Stock Market Insights (InvestIQ)
+- Real-time stock quotes (Alpha Vantage + Yahoo Finance)
+- Historical stock data with interactive charts
+- AI-powered price predictions (ML models)
+- Technical indicators (RSI, MACD, Moving Averages)
+- Watchlist management
+- Stock search functionality
+- Popular stocks dashboard
+- Confidence scores for predictions
+
+## 🏗️ Architecture
+
+### Full-Stack Application
+- **Frontend**: React 18 + TypeScript + Tailwind CSS
+- **Backend**: FastAPI + PostgreSQL + SQLAlchemy
+- **ML**: scikit-learn + TensorFlow (backend predictions)
+- **APIs**: Alpha Vantage + Yahoo Finance
+
+### Project Structure
+```
+hippie-fintech/
+├── backend/                 # FastAPI backend
+│   ├── app/
+│   │   ├── api/v1/         # REST API endpoints
+│   │   ├── core/           # Configuration
+│   │   ├── db/             # Database models
+│   │   └── services/       # Business logic
+│   └── requirements.txt
+├── src/                     # React frontend
+│   ├── components/         # UI components
+│   ├── services/           # API clients
+│   └── App.tsx
+└── README.md
+```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 16+ 
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL 14+
 - npm or yarn
 
-### Installation
+### 1. Backend Setup
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd ai-stock-predictor
+# Navigate to backend
+cd backend
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
+pip install -r requirements.txt
+
+# Setup environment
+cp .env.example .env
+# Edit .env with your database URL and API keys
+
+# Create database
+createdb hippie_db
+
+# Start backend
+uvicorn app.main:app --reload --port 8000
+```
+
+Backend API: http://localhost:8000
+API Docs: http://localhost:8000/api/docs
+
+### 2. Frontend Setup
+
+```bash
+# From project root
 npm install
 
-# Start development server
+# Create .env file
+echo "REACT_APP_API_URL=http://localhost:8000/api/v1" > .env
+
+# Start frontend
 npm start
 ```
 
-The app will open at [http://localhost:3000](http://localhost:3000)
+Frontend: http://localhost:3000
 
-## 📊 Stock Market APIs
+## 📚 Documentation
 
-This application uses multiple stock market APIs to provide comprehensive market data:
+- **Quick Start**: [`QUICK_START.md`](./QUICK_START.md) - 5-minute setup guide
+- **Integration Guide**: [`INTEGRATION_GUIDE.md`](./INTEGRATION_GUIDE.md) - Detailed integration instructions
+- **Project Summary**: [`PROJECT_SUMMARY.md`](./PROJECT_SUMMARY.md) - Complete project overview
+- **Backend README**: [`backend/README.md`](./backend/README.md) - Backend API documentation
 
-### Primary API: Yahoo Finance (No API Key Required)
-- **Implementation:** Direct browser fetch calls to Yahoo Finance public endpoints
-- **Features:** Real-time quotes, historical data, stock search
-- **Rate Limits:** None (reasonable usage)
-- **CORS:** ✅ Supported - Works directly in browser
-- **Status:** ✅ Active - Works out of the box
-- **Endpoints:**
-  - Search: `https://query2.finance.yahoo.com/v1/finance/search`
-  - Quote: `https://query1.finance.yahoo.com/v8/finance/chart/{symbol}`
+## 🔑 Key Features
 
-### Optional APIs (For Extended Features)
+### Authentication
+- JWT-based authentication
+- Secure password hashing (bcrypt)
+- User registration and login
+- Protected API routes
 
-#### 1. Alpha Vantage API
-- **Website:** https://www.alphavantage.co/
-- **Free Tier:** 5 API calls/minute, 500 calls/day
-- **Features:** Real-time and historical data, technical indicators
-- **Get API Key:** https://www.alphavantage.co/support/#api-key
-- **Environment Variable:** `REACT_APP_ALPHA_VANTAGE_API_KEY`
+### Payments
+- Multiple currency support (USD, ZWL)
+- Transaction history
+- Account management
+- Real-time balance updates
 
-#### 2. Finnhub API
-- **Website:** https://finnhub.io/
-- **Free Tier:** 60 calls/minute
-- **Features:** Real-time quotes, company news, financials
-- **Get API Key:** https://finnhub.io/register
-- **Environment Variable:** `REACT_APP_FINNHUB_API_KEY`
+### Stock Market
+- Real-time quotes from Yahoo Finance
+- Historical data visualization
+- ML-powered predictions
+- Technical analysis
+- Watchlist management
 
-#### 3. Polygon.io API
-- **Website:** https://polygon.io/
-- **Free Tier:** Available with registration
-- **Features:** Real-time and historical market data
-- **Get API Key:** https://polygon.io/
-- **Environment Variable:** `REACT_APP_POLYGON_API_KEY`
+## 🛠️ Tech Stack
 
-#### 4. IEX Cloud API
-- **Website:** https://iexcloud.io/
-- **Free Tier:** Available with registration
-- **Features:** Real-time quotes, market data, financials
-- **Get API Key:** https://iexcloud.io/
-- **Environment Variable:** `REACT_APP_IEX_API_KEY`
+### Frontend
+- React 18
+- TypeScript
+- Tailwind CSS
+- Recharts
+- Lucide React
 
-### Adding API Keys (Optional)
+### Backend
+- FastAPI
+- PostgreSQL
+- SQLAlchemy
+- JWT Authentication
+- scikit-learn (ML)
 
-Create a `.env.local` file in the root directory:
+### APIs
+- Yahoo Finance (free, no API key)
+- Alpha Vantage (optional, requires API key)
 
+## 📊 API Endpoints
+
+### Authentication
+- `POST /api/v1/auth/register` - Register user
+- `POST /api/v1/auth/login` - Login
+- `GET /api/v1/auth/me` - Get current user
+
+### Stocks
+- `GET /api/v1/stocks/quote/{symbol}` - Get stock quote
+- `GET /api/v1/stocks/historical/{symbol}` - Get historical data
+- `GET /api/v1/stocks/predict/{symbol}` - Get prediction
+- `GET /api/v1/stocks/search?q=apple` - Search stocks
+- `GET /api/v1/stocks/popular` - Get popular stocks
+
+### Payments
+- `GET /api/v1/payments/accounts` - Get accounts
+- `POST /api/v1/payments/accounts` - Create account
+- `GET /api/v1/payments/transactions` - Get transactions
+- `POST /api/v1/payments/transactions` - Create transaction
+- `GET /api/v1/payments/balance` - Get balance
+
+### Watchlists
+- `GET /api/v1/watchlists` - Get watchlist
+- `POST /api/v1/watchlists` - Add to watchlist
+- `DELETE /api/v1/watchlists/{id}` - Remove from watchlist
+
+## 🔐 Environment Variables
+
+### Backend (.env)
 ```env
-# Optional API keys for extended features
-REACT_APP_ALPHA_VANTAGE_API_KEY=your_key_here
-REACT_APP_FINNHUB_API_KEY=your_key_here
-REACT_APP_POLYGON_API_KEY=your_key_here
-REACT_APP_IEX_API_KEY=your_key_here
+DATABASE_URL=postgresql://user:password@localhost:5432/hippie_db
+SECRET_KEY=your-secret-key-here
+ALPHA_VANTAGE_API_KEY=your-api-key (optional)
+YAHOO_FINANCE_ENABLED=true
+CORS_ORIGINS=http://localhost:3000
+DEBUG=true
 ```
 
-**Note:** The app works perfectly without API keys using Yahoo Finance. API keys are only needed for additional features or higher rate limits.
+### Frontend (.env)
+```env
+REACT_APP_API_URL=http://localhost:8000/api/v1
+```
 
-**For detailed API integration instructions, see [API_INTEGRATION.md](./API_INTEGRATION.md)**
+## 🧪 Testing
 
-## 🤖 AI Prediction Features
-
-### Machine Learning Models
-- **TensorFlow.js** - Client-side ML predictions
-- **Linear Regression** - Trend-based predictions
-- **Moving Average Analysis** - Technical trend predictions
-- **Time Series Analysis** - Historical pattern recognition
-
-### Technical Indicators
-- **RSI (Relative Strength Index)** - Overbought/Oversold signals
-- **MACD (Moving Average Convergence Divergence)** - Momentum analysis
-- **SMA (Simple Moving Averages)** - Trend identification
-- **Volatility Analysis** - Risk assessment
-
-### Prediction Timeframes
-- **1 Day** - Short-term predictions
-- **1 Week** - Weekly forecasts
-- **1 Month** - Monthly projections
-- **3 Months** - Quarterly outlook
-
-## 🛠️ Available Scripts
-
+### Backend
 ```bash
-# Development
-npm start                 # Start development server
-npm run type-check        # TypeScript type checking
-npm run lint              # ESLint code quality check
-npm run lint:fix          # Auto-fix ESLint issues
-
-# Production
-npm run build             # Production build
-npm run build:prod        # Production build with NODE_ENV=production
-npm run preview           # Preview production build locally
-npm run analyze           # Analyze bundle size
-
-# Maintenance
-npm run clean             # Clean build artifacts and cache
-npm run prebuild          # Pre-build checks (clean + type-check + lint)
+cd backend
+pytest
 ```
 
-## 📁 Project Structure
-
-```
-src/
-├── components/           # React components
-│   ├── ui/              # Reusable UI components
-│   │   ├── button.tsx
-│   │   ├── card.tsx
-│   │   ├── input.tsx
-│   │   └── ...
-│   ├── StockDashboard.tsx    # Main dashboard
-│   ├── StockSearch.tsx       # Stock search component
-│   ├── StockDetail.tsx       # Stock detail with charts
-│   ├── Watchlist.tsx         # Watchlist management
-│   └── ErrorBoundary.tsx     # Error handling
-├── services/            # Business logic
-│   ├── stockApi.ts          # Stock data API service
-│   └── predictionService.ts # AI prediction service
-├── types/               # TypeScript types
-│   └── stock.ts            # Stock-related types
-├── App.tsx              # Main application component
-├── index.tsx            # Application entry point
-└── index.css            # Global styles
+### Frontend
+```bash
+npm test
 ```
 
-## 🎨 Tech Stack
+## 📦 Deployment
 
-- **React 18** - Modern React with hooks
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first styling
-- **Radix UI** - Accessible component primitives
-- **Lucide React** - Beautiful icons
-- **Recharts** - Interactive charts
-- **TensorFlow.js** - Machine learning
-- **Yahoo Finance API** - Stock market data
-- **Simple Statistics** - Statistical calculations
-- **Date-fns** - Date formatting
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create `.env.local` for local development (optional):
-
-```env
-# Stock Market API Keys (Optional)
-REACT_APP_ALPHA_VANTAGE_API_KEY=your_key
-REACT_APP_FINNHUB_API_KEY=your_key
-REACT_APP_POLYGON_API_KEY=your_key
-REACT_APP_IEX_API_KEY=your_key
+### Backend (Docker)
+```bash
+cd backend
+docker build -t hippie-backend .
+docker run -p 8000:8000 hippie-backend
 ```
 
-### Tailwind CSS
-
-The project uses Tailwind CSS for styling. Configuration is in `tailwind.config.js`.
-
-### TypeScript
-
-Strict TypeScript configuration in `tsconfig.json` with:
-- Strict type checking
-- No unused variables
-- No implicit returns
-- Override modifiers required
-
-## 🚀 Deployment
-
-### Static Hosting (Recommended)
-
+### Frontend
 ```bash
 npm run build
-# Deploy the 'build' folder to your hosting service
+# Deploy build/ directory to Vercel/Netlify
 ```
 
-**Recommended Platforms:**
-- Vercel
-- Netlify  
-- AWS S3 + CloudFront
-- GitHub Pages
+## 🎯 Roadmap
 
-### Docker
+### Immediate
+- [x] Backend API structure
+- [x] Database models
+- [x] Stock API integration
+- [x] ML prediction service
+- [ ] Frontend API integration
+- [ ] Authentication UI
+- [ ] Error handling
 
-```bash
-# Build Docker image
-docker build -t ai-stock-predictor .
+### Short-term
+- [ ] Real-time stock updates (WebSockets)
+- [ ] Caching (Redis)
+- [ ] Improved ML models
+- [ ] More technical indicators
+- [ ] Mobile app (React Native)
 
-# Run container
-docker run -p 3000:80 ai-stock-predictor
-```
-
-## 📊 Performance
-
-- **Bundle Size:** Optimized with code splitting
-- **Build Time:** Optimized with pre-build checks
-- **TypeScript:** Strict mode enabled
-- **Code Quality:** ESLint compliant
-- **Data Caching:** 1-minute cache for API calls
-
-## 🔒 Security
-
-- Error boundaries for graceful error handling
-- Type-safe development with TypeScript
-- Secure environment variable handling
-- Production-ready security configurations
-- API key protection (client-side only)
-
-## 📱 Mobile Optimization
-
-- Responsive design for all screen sizes
-- Touch-friendly interface
-- Mobile-first approach
-- PWA-ready structure
-
-## 🌐 Browser Support
-
-- Modern browsers (Chrome, Firefox, Safari, Edge)
-- Mobile browsers
-- Progressive enhancement
-- Graceful degradation
-
-## 🎯 Usage Examples
-
-### Searching for Stocks
-1. Click "Search Stocks" on the dashboard
-2. Type a stock symbol (e.g., "AAPL") or company name
-3. Select a stock to view details
-
-### Viewing Predictions
-1. Navigate to a stock's detail page
-2. View AI predictions in the "AI Predictions" section
-3. Switch between timeframes (1d, 1w, 1m, 3m)
-4. Review confidence scores and trend analysis
-
-### Managing Watchlist
-1. Click the star icon on any stock to add to watchlist
-2. View your watchlist from the dashboard
-3. Remove stocks by clicking the X icon
-
-### Analyzing Technical Indicators
-1. View technical indicators on stock detail pages
-2. Review RSI, MACD, and Moving Average signals
-3. Check buy/sell/hold recommendations
-
-## ⚠️ Disclaimer
-
-**Important:** This application is for educational and informational purposes only. Stock market predictions are not guaranteed and should not be used as the sole basis for investment decisions. Always consult with a qualified financial advisor before making investment decisions. Past performance does not guarantee future results.
+### Long-term
+- [ ] Micro-investing feature
+- [ ] Portfolio tracking
+- [ ] AI financial recommendations
+- [ ] Push notifications
+- [ ] Social features
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests and linting
+4. Write tests
 5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+MIT License
 
-## 🆘 Support
+## 🙏 Acknowledgments
 
-For support and questions:
-- Check the [Production Deployment Guide](./PRODUCTION_DEPLOYMENT.md)
-- Review the code documentation
-- Open an issue for bugs or feature requests
+- Alpha Vantage for stock data API
+- Yahoo Finance for free stock data
+- FastAPI team for the excellent framework
+- React team for the amazing UI library
+
+## ⚠️ Disclaimer
+
+**Important:** This application is for educational and informational purposes only. Stock market predictions are not guaranteed and should not be used as the sole basis for investment decisions. Always consult with a qualified financial advisor before making investment decisions.
 
 ---
 
-**Built with ❤️ for Investors 📈**
+**Built with ❤️ for the fintech community 🚀**
+
+For detailed setup instructions, see [`QUICK_START.md`](./QUICK_START.md)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { ArrowLeft, Star, TrendingUp, TrendingDown, BarChart3, X } from 'lucide-react';
@@ -96,7 +96,7 @@ export function Watchlist({ watchlist, onBack, onNavigate, onRemoveFromWatchlist
             <Star className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-600 mb-2">Your watchlist is empty</h2>
             <p className="text-gray-500 mb-6">Start adding stocks to track their performance</p>
-            <Button onClick={() => onNavigate('search')}>Search Stocks</Button>
+            <Button onClick={() => onNavigate('stock-search')}>Search Stocks</Button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -106,7 +106,7 @@ export function Watchlist({ watchlist, onBack, onNavigate, onRemoveFromWatchlist
                 <Card
                   key={item.symbol}
                   className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => onNavigate('detail', { symbol: item.symbol })}
+                  onClick={() => onNavigate('stock-detail', { symbol: item.symbol })}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -140,7 +140,7 @@ export function Watchlist({ watchlist, onBack, onNavigate, onRemoveFromWatchlist
                           className="text-blue-600 hover:text-blue-700"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onNavigate('detail', { symbol: item.symbol });
+                            onNavigate('stock-detail', { symbol: item.symbol });
                           }}
                         >
                           <BarChart3 className="w-5 h-5" />

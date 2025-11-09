@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent } from './ui/card';
@@ -30,7 +30,6 @@ export function StockSearch({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [recentSearches] = useState<string[]>([]);
   const [quotes, setQuotes] = useState<Record<string, any>>({});
 
   useEffect(() => {

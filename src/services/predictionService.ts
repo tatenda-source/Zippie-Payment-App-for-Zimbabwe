@@ -198,7 +198,7 @@ export class PredictionService {
   /**
    * ML model prediction
    */
-  private async mlPrediction(prices: number[], timeframe: '1d' | '1w' | '1m' | '3m'): Promise<number> {
+  private async mlPrediction(prices: number[], _timeframe: '1d' | '1w' | '1m' | '3m'): Promise<number> {
     if (!this.model || prices.length < 10) {
       return prices[prices.length - 1];
     }

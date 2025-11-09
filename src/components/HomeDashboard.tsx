@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { 
@@ -23,7 +23,7 @@ interface HomeDashboardProps {
 }
 
 export function HomeDashboard({ accounts, transactions, onNavigate }: HomeDashboardProps) {
-  const [showBalances, setShowBalances] = React.useState(true);
+  const [showBalances, setShowBalances] = useState(true);
 
   const totalUSD = accounts.filter(a => a.currency === 'USD').reduce((sum, a) => sum + a.balance, 0);
   const totalZWL = accounts.filter(a => a.currency === 'ZWL').reduce((sum, a) => sum + a.balance, 0);
@@ -118,6 +118,26 @@ export function HomeDashboard({ accounts, transactions, onNavigate }: HomeDashbo
             <QrCode className="w-6 h-6" />
             <span>Scan</span>
           </Button>
+        </div>
+
+        {/* Stocks Section */}
+        <div className="mb-6">
+          <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-purple-50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Stock Market</h3>
+                  <p className="text-sm text-gray-600">AI-powered predictions & insights</p>
+                </div>
+                <Button
+                  onClick={() => onNavigate('stocks')}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  View Stocks
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Accounts */}

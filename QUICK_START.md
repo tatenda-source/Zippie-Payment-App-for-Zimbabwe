@@ -1,141 +1,204 @@
-# Quick Start Guide
+# Hippie Fintech Platform - Quick Start Guide
 
-## Getting Started
+## 🚀 Quick Setup (5 Minutes)
 
-### 1. Install Dependencies
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL 14+
+- npm or yarn
+
+### 1. Backend Setup
 
 ```bash
-npm install
+# Navigate to backend
+cd backend
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Setup environment
+cp .env.example .env
+# Edit .env with your database URL and API keys
+
+# Create database
+createdb hippie_db
+
+# Start backend
+uvicorn app.main:app --reload --port 8000
 ```
 
-This will install all required packages including:
-- React and TypeScript
-- Recharts for charts
-- TensorFlow.js for AI predictions
-- Simple Statistics for calculations
-- Tailwind CSS for styling
+Backend will be running at: http://localhost:8000
+API Docs: http://localhost:8000/api/docs
 
-### 2. Start Development Server
+### 2. Frontend Setup
 
+```bash
+# From project root
+npm install
+
+# Create .env file
+echo "REACT_APP_API_URL=http://localhost:8000/api/v1" > .env
+
+# Start frontend
+npm start
+```
+
+Frontend will be running at: http://localhost:3000
+
+### 3. Test the Integration
+
+1. **Register a user** via API:
+```bash
+curl -X POST "http://localhost:8000/api/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "phone": "+1234567890",
+    "full_name": "Test User",
+    "password": "password123"
+  }'
+```
+
+2. **Login**:
+```bash
+curl -X POST "http://localhost:8000/api/v1/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=test@example.com&password=password123"
+```
+
+3. **Get stock quote** (requires auth token):
+```bash
+curl -X GET "http://localhost:8000/api/v1/stocks/quote/AAPL" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## 📁 Project Structure
+
+```
+hippie-fintech/
+├── backend/                 # FastAPI backend
+│   ├── app/
+│   │   ├── api/v1/         # API routes
+│   │   ├── core/           # Core configuration
+│   │   ├── db/             # Database models
+│   │   └── services/       # Business logic
+│   ├── requirements.txt
+│   └── README.md
+├── src/                     # React frontend
+│   ├── components/         # UI components
+│   ├── services/           # API clients
+│   └── App.tsx
+└── README.md
+```
+
+## 🔑 Key Features
+
+### P2P Payments
+- ✅ User registration and authentication
+- ✅ Account management
+- ✅ Send money
+- ✅ Request payments
+- ✅ Transaction history
+- ✅ Balance tracking
+
+### Stock Market Insights
+- ✅ Real-time stock quotes
+- ✅ Historical data
+- ✅ AI-powered predictions
+- ✅ Watchlist management
+- ✅ Stock search
+- ✅ Technical indicators
+
+## 🛠️ Development
+
+### Backend Development
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload
+```
+
+### Frontend Development
 ```bash
 npm start
 ```
 
-The app will open at [http://localhost:3000](http://localhost:3000)
-
-### 3. Start Using the App
-
-#### Search for Stocks
-1. Click "Search Stocks" on the dashboard
-2. Type a stock symbol (e.g., "AAPL", "MSFT", "GOOGL") or company name
-3. Select a stock to view details
-
-#### View Stock Details
-- View real-time stock prices
-- See interactive price charts
-- Check AI predictions with confidence scores
-- Review technical indicators (RSI, MACD, etc.)
-
-#### Manage Watchlist
-- Click the star icon on any stock to add to watchlist
-- View your watchlist from the dashboard
-- Remove stocks by clicking the X icon
-
-#### View Predictions
-- Navigate to any stock's detail page
-- View AI predictions in the "AI Predictions" section
-- Switch between timeframes (1d, 1w, 1m, 3m)
-- Review confidence scores and trend analysis
-
-## Popular Stock Symbols to Try
-
-- **AAPL** - Apple Inc.
-- **MSFT** - Microsoft Corporation
-- **GOOGL** - Alphabet Inc. (Google)
-- **AMZN** - Amazon.com Inc.
-- **TSLA** - Tesla Inc.
-- **META** - Meta Platforms Inc. (Facebook)
-- **NVDA** - NVIDIA Corporation
-- **NFLX** - Netflix Inc.
-
-## Features Overview
-
-### 📊 Real-Time Data
-- Live stock prices
-- Market changes and percentages
-- Volume and market cap
-- 52-week highs and lows
-
-### 🤖 AI Predictions
-- Price predictions for multiple timeframes
-- Confidence scores
-- Trend analysis (bullish/bearish/neutral)
-- Prediction reasoning
-
-### 📈 Technical Analysis
-- RSI (Relative Strength Index)
-- MACD (Moving Average Convergence Divergence)
-- Moving Averages
-- Volatility indicators
-- Buy/Sell/Hold signals
-
-### ⭐ Watchlist
-- Track favorite stocks
-- Quick access from dashboard
-- Real-time updates
-- Persistent storage (localStorage)
-
-## Troubleshooting
-
-### API Issues
-
-If you encounter CORS errors or API issues:
-
-1. **Check Browser Console** - Look for error messages
-2. **Verify Internet Connection** - Stock data requires internet
-3. **Try Different Stock** - Some symbols may not be available
-4. **Check API Status** - Yahoo Finance may be temporarily unavailable
-
-### Performance Issues
-
-1. **Clear Cache** - The app caches data for 1 minute
-2. **Reduce Watchlist Size** - Large watchlists may slow loading
-3. **Check Browser** - Use modern browser (Chrome, Firefox, Safari, Edge)
-
-### Build Issues
-
+### Running Tests
 ```bash
-# Clean build
-npm run clean
+# Backend tests
+cd backend
+pytest
 
-# Type check
-npm run type-check
-
-# Lint
-npm run lint
-
-# Build
-npm run build
+# Frontend tests
+npm test
 ```
 
-## Next Steps
+## 📚 API Documentation
 
-1. **Add API Keys (Optional)** - See [README.md](./README.md) for API key setup
-2. **Customize UI** - Modify components in `src/components/`
-3. **Add Features** - Extend services in `src/services/`
-4. **Deploy** - See [README.md](./README.md) for deployment options
+Once the backend is running, visit:
+- **Swagger UI**: http://localhost:8000/api/docs
+- **ReDoc**: http://localhost:8000/api/redoc
 
-## Need Help?
+## 🔐 Environment Variables
 
-- Check [README.md](./README.md) for detailed documentation
-- See [API_INTEGRATION.md](./API_INTEGRATION.md) for API integration
-- Review [TRANSFORMATION_SUMMARY.md](./TRANSFORMATION_SUMMARY.md) for changes
+### Backend (.env)
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/hippie_db
+SECRET_KEY=your-secret-key-here
+ALPHA_VANTAGE_API_KEY=your-api-key (optional)
+YAHOO_FINANCE_ENABLED=true
+```
 
-## Important Notes
+### Frontend (.env)
+```env
+REACT_APP_API_URL=http://localhost:8000/api/v1
+```
 
-⚠️ **Disclaimer:** This application is for educational purposes only. Stock predictions are not guaranteed. Always consult a financial advisor before making investment decisions.
+## 🐳 Docker Deployment
+
+### Backend
+```bash
+cd backend
+docker build -t hippie-backend .
+docker run -p 8000:8000 hippie-backend
+```
+
+## 📖 Next Steps
+
+1. **Read Integration Guide**: See `INTEGRATION_GUIDE.md` for detailed integration instructions
+2. **Update Frontend**: Migrate components to use backend API (see `src/services/api.ts`)
+3. **Add Authentication UI**: Create login/register components
+4. **Deploy**: Follow deployment instructions in `INTEGRATION_GUIDE.md`
+
+## 🆘 Troubleshooting
+
+### Backend won't start
+- Check PostgreSQL is running: `pg_isready`
+- Verify DATABASE_URL in .env is correct
+- Check port 8000 is not in use
+
+### Frontend can't connect to backend
+- Verify backend is running on port 8000
+- Check REACT_APP_API_URL in .env
+- Verify CORS_ORIGINS includes http://localhost:3000
+
+### Database errors
+- Ensure database exists: `createdb hippie_db`
+- Check user has permissions
+- Verify DATABASE_URL format
+
+## 📞 Support
+
+For detailed documentation:
+- Backend: `backend/README.md`
+- Integration: `INTEGRATION_GUIDE.md`
+- API Docs: http://localhost:8000/api/docs
 
 ---
 
-**Happy Trading! 📈**
-
+**Happy Coding! 🚀**

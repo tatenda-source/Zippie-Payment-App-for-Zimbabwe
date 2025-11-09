@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { 
@@ -9,8 +9,7 @@ import {
   Activity,
   BarChart3,
   Brain,
-  ArrowUpRight,
-  ArrowDownRight
+  Home
 } from 'lucide-react';
 import type { WatchlistItem, Screen } from '../App';
 import type { StockQuote } from '../types/stock';
@@ -21,6 +20,7 @@ interface StockDashboardProps {
   onNavigate: (screen: Screen, data?: any) => void;
   onAddToWatchlist: (symbol: string) => void;
   onRemoveFromWatchlist: (symbol: string) => void;
+  onBack?: () => void;
 }
 
 const POPULAR_STOCKS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX'];
@@ -29,7 +29,8 @@ export function StockDashboard({
   watchlist, 
   onNavigate, 
   onAddToWatchlist,
-  onRemoveFromWatchlist 
+  onRemoveFromWatchlist,
+  onBack
 }: StockDashboardProps) {
   const [popularStocks, setPopularStocks] = useState<StockQuote[]>([]);
   const [watchlistQuotes, setWatchlistQuotes] = useState<StockQuote[]>([]);
@@ -89,14 +90,26 @@ export function StockDashboard({
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-6 rounded-b-3xl shadow-lg">
         <div className="flex justify-between items-start mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-white">AI Stock Predictor</h1>
-            <p className="text-blue-100 mt-1">Smart predictions for investors</p>
+          <div className="flex items-center gap-3">
+            {onBack && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                className="text-white hover:bg-blue-700/50"
+              >
+                <Home className="w-5 h-5" />
+              </Button>
+            )}
+            <div>
+              <h1 className="text-3xl font-bold text-white">AI Stock Predictor</h1>
+              <p className="text-blue-100 mt-1">Smart predictions for investors</p>
+            </div>
           </div>
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onNavigate('search')}
+            onClick={() => onNavigate('stock-search')}
             className="text-white hover:bg-blue-700/50"
           >
             <Search className="w-5 h-5" />
@@ -126,7 +139,7 @@ export function StockDashboard({
       <div className="px-4 py-6">
         <div className="grid grid-cols-2 gap-4 mb-6">
           <Button
-            onClick={() => onNavigate('search')}
+            onClick={() => onNavigate('stock-search')}
             className="flex flex-col items-center gap-2 h-24 bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
           >
             <Search className="w-6 h-6" />
@@ -163,7 +176,7 @@ export function StockDashboard({
                 <Card 
                   key={quote.symbol} 
                   className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => onNavigate('detail', { symbol: quote.symbol })}
+                  onClick={() => onNavigate('stock-detail', { symbol: quote.symbol })}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -195,7 +208,7 @@ export function StockDashboard({
                           className="mt-2 text-blue-600"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onNavigate('detail', { symbol: quote.symbol });
+                            onNavigate('stock-detail', { symbol: quote.symbol });
                           }}
                         >
                           <BarChart3 className="w-4 h-4" />
@@ -225,7 +238,7 @@ export function StockDashboard({
                 <Card 
                   key={quote.symbol} 
                   className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => onNavigate('detail', { symbol: quote.symbol })}
+                  onClick={() => onNavigate('stock-detail', { symbol: quote.symbol })}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">

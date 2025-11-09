@@ -64,7 +64,7 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = 
       transaction.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.sender.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (transaction.sender && transaction.sender.toLowerCase().includes(searchQuery.toLowerCase())) ||
       transaction.description.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
@@ -238,7 +238,7 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
                             <div className="flex items-center gap-2 mb-1">
                               <p className="font-medium">
                                 {transaction.type === 'sent' ? `To ${transaction.recipient}` : 
-                                 transaction.type === 'received' ? `From ${transaction.sender}` : 
+                                 transaction.type === 'received' ? `From ${transaction.sender || 'Unknown'}` : 
                                  `Request to ${transaction.recipient}`}
                               </p>
                               {getStatusBadge(transaction.status)}
