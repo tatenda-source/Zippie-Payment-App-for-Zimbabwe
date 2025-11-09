@@ -114,3 +114,34 @@ docker-compose.yml
 *.bundle.js
 *.chunk.js
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+
+# Backend specific
+backend/.env
+backend/app/models/*.pkl
+backend/*.db
+backend/*.sqlite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
