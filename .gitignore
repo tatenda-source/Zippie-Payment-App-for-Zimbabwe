@@ -104,10 +104,10 @@ temp/
 ehthumbs.db
 Thumbs.db
 
-# Docker
+# Docker (but allow backend Dockerfile)
 .dockerignore
-Dockerfile
 docker-compose.yml
+!backend/Dockerfile
 
 # Build artifacts
 *.map
