@@ -2,7 +2,7 @@
 Database models for Hippie Fintech Platform
 """
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
@@ -58,14 +58,14 @@ class Transaction(Base):
     transaction_type = Column(String, nullable=False)  # sent, received, request
     amount = Column(Float, nullable=False)
     currency = Column(String, default="USD", nullable=False)
-    recipient = Column(String, nullable=False)
-    sender = Column(String, nullable=True)
+    recipient = Column(String, nullable=False, index=True)
+    sender = Column(String, nullable=True, index=True)
     description = Column(Text, nullable=True)
     status = Column(String, default="pending", nullable=False)  # completed, pending, failed
     payment_method = Column(String, nullable=True)
     fee = Column(Float, default=0.0)
     metadata = Column(JSON, nullable=True)  # Additional data
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
@@ -91,6 +91,6 @@ class Watchlist(Base):
     
     # Unique constraint: one symbol per user
     __table_args__ = (
-        {"sqlite_autoincrement": True},
+        UniqueConstraint('user_id', 'symbol', name='uq_user_symbol'),
     )
 

@@ -6,7 +6,7 @@ Uses scikit-learn and TensorFlow for predictions
 import numpy as np
 import pandas as pd
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -180,7 +180,7 @@ class MLPredictorService:
                 "predicted_change": float(predicted_change),
                 "predicted_change_percent": float(predicted_change_percent),
                 "timeframe": timeframe,
-                "prediction_date": datetime.utcnow().isoformat()
+                "prediction_date": datetime.now(timezone.utc).isoformat()
             }
         except Exception as e:
             print(f"Error predicting for {symbol}: {str(e)}")

@@ -22,14 +22,20 @@ class Settings(BaseSettings):
     )
     
     # JWT
-    SECRET_KEY: str = os.getenv(
-        "SECRET_KEY",
-        "your-secret-key-change-in-production-use-openssl-rand-hex-32"
-    )
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
         os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
     )
+    
+    @property
+    def secret_key_valid(self) -> bool:
+        """Check if SECRET_KEY is set and valid"""
+        if not self.SECRET_KEY:
+            return False
+        if self.ENVIRONMENT == "production" and self.SECRET_KEY == "your-secret-key-change-in-production-use-openssl-rand-hex-32":
+            return False
+        return len(self.SECRET_KEY) >= 32
     
     # Stock API
     ALPHA_VANTAGE_API_KEY: str = os.getenv("ALPHA_VANTAGE_API_KEY", "")
@@ -54,4 +60,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Validate SECRET_KEY in production
+if settings.ENVIRONMENT == "production" and not settings.secret_key_valid:
+    raise ValueError(
+        "SECRET_KEY must be set and at least 32 characters long in production. "
+        "Generate one with: openssl rand -hex 32"
+    )
 

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import os
+import logging
 from dotenv import load_dotenv
 
 from app.core.config import settings
@@ -16,8 +17,20 @@ from app.db.database import engine, Base
 # Load environment variables
 load_dotenv()
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO if settings.DEBUG else logging.WARNING,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Create database tables
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created/verified successfully")
+except Exception as e:
+    logger.error(f"Error creating database tables: {str(e)}")
+    raise
 
 app = FastAPI(
     title="Hippie Fintech Platform",
@@ -54,9 +67,28 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    from sqlalchemy import text
+    from app.db.database import get_db
+    
+    # Check database connection
+    db_status = "disconnected"
+    try:
+        db_gen = get_db()
+        db = next(db_gen)
+        db.execute(text("SELECT 1"))
+        db_status = "connected"
+        # Close the database session
+        try:
+            next(db_gen, None)
+        except StopIteration:
+            pass
+    except Exception as e:
+        db_status = "disconnected"
+        logger.error(f"Database health check failed: {str(e)}")
+    
     return {
-        "status": "healthy",
-        "database": "connected",
+        "status": "healthy" if db_status == "connected" else "unhealthy",
+        "database": db_status,
         "services": {
             "p2p": "operational",
             "stocks": "operational",
@@ -68,11 +100,26 @@ async def health_check():
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Global exception handler"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Log the full error for debugging
+    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    
+    # Return safe error message
+    error_message = str(exc) if settings.DEBUG else "An error occurred"
+    
+    # Don't leak sensitive information
+    if not settings.DEBUG:
+        # In production, sanitize error messages
+        if "password" in error_message.lower() or "secret" in error_message.lower():
+            error_message = "An error occurred"
+    
     return JSONResponse(
         status_code=500,
         content={
             "error": "Internal server error",
-            "message": str(exc) if settings.DEBUG else "An error occurred"
+            "message": error_message
         }
     )
 

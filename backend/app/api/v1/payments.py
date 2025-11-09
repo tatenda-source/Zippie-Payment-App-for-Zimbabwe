@@ -2,14 +2,17 @@
 P2P Payment API endpoints
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+import logging
 
 from app.db.database import get_db
 from app.db import models
-from app.db.schemas import AccountResponse, TransactionCreate, TransactionResponse
+from app.db.schemas import AccountResponse, AccountCreate, TransactionCreate, TransactionResponse
 from app.api.v1.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -30,24 +33,49 @@ async def get_accounts(
 
 @router.post("/accounts", response_model=AccountResponse)
 async def create_account(
-    account_data: dict,
+    account_data: AccountCreate,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new account"""
-    db_account = models.Account(
-        user_id=current_user.id,
-        name=account_data.get("name"),
-        currency=account_data.get("currency", "USD"),
-        account_type=account_data.get("account_type", "primary"),
-        color=account_data.get("color", "#10b981")
-    )
+    # Validate currency
+    valid_currencies = ["USD", "ZWL"]
+    if account_data.currency not in valid_currencies:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid currency. Must be one of: {', '.join(valid_currencies)}"
+        )
     
-    db.add(db_account)
-    db.commit()
-    db.refresh(db_account)
+    # Validate account type
+    valid_types = ["primary", "savings", "investment"]
+    if account_data.account_type not in valid_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid account type. Must be one of: {', '.join(valid_types)}"
+        )
     
-    return db_account
+    try:
+        db_account = models.Account(
+            user_id=current_user.id,
+            name=account_data.name,
+            currency=account_data.currency,
+            account_type=account_data.account_type,
+            color=account_data.color
+        )
+        
+        db.add(db_account)
+        db.commit()
+        db.refresh(db_account)
+        
+        logger.info(f"Account created: user_id={current_user.id}, account_id={db_account.id}")
+        return db_account
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating account: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create account"
+        )
 
 
 @router.get("/transactions", response_model=List[TransactionResponse])
@@ -71,45 +99,92 @@ async def create_transaction(
     db: Session = Depends(get_db)
 ):
     """Create a new transaction"""
-    # Verify account belongs to user if account_id is provided
-    if transaction_data.account_id:
-        account = db.query(models.Account).filter(
-            models.Account.id == transaction_data.account_id,
-            models.Account.user_id == current_user.id
-        ).first()
+    # Validate transaction type
+    valid_types = ["sent", "received", "request"]
+    if transaction_data.transaction_type not in valid_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid transaction type. Must be one of: {', '.join(valid_types)}"
+        )
+    
+    # Validate amount
+    if transaction_data.amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Amount must be greater than 0"
+        )
+    
+    try:
+        # Verify account belongs to user if account_id is provided
+        account = None
+        if transaction_data.account_id:
+            account = db.query(models.Account).filter(
+                models.Account.id == transaction_data.account_id,
+                models.Account.user_id == current_user.id,
+                models.Account.is_active == True
+            ).first()
+            
+            if not account:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Account not found"
+                )
         
-        if not account:
-            raise HTTPException(
-                status_code=404,
-                detail="Account not found"
-            )
-        
-        # Update account balance if transaction is sent
+        # For "sent" transactions, validate and deduct from sender's account
         if transaction_data.transaction_type == "sent":
+            if not account:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Account is required for sending money"
+                )
+            
             if account.balance < transaction_data.amount:
                 raise HTTPException(
-                    status_code=400,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Insufficient balance"
                 )
+            
+            # Deduct from sender's account
             account.balance -= transaction_data.amount
-    
-    db_transaction = models.Transaction(
-        user_id=current_user.id,
-        account_id=transaction_data.account_id,
-        transaction_type=transaction_data.transaction_type,
-        amount=transaction_data.amount,
-        currency=transaction_data.currency,
-        recipient=transaction_data.recipient,
-        description=transaction_data.description,
-        payment_method=transaction_data.payment_method,
-        status="completed"
-    )
-    
-    db.add(db_transaction)
-    db.commit()
-    db.refresh(db_transaction)
-    
-    return db_transaction
+            transaction_status = "completed"
+        else:
+            # For "received" and "request" transactions, mark as pending
+            transaction_status = "pending"
+        
+        # Create transaction record
+        db_transaction = models.Transaction(
+            user_id=current_user.id,
+            account_id=transaction_data.account_id,
+            transaction_type=transaction_data.transaction_type,
+            amount=transaction_data.amount,
+            currency=transaction_data.currency,
+            recipient=transaction_data.recipient,
+            sender=current_user.email if transaction_data.transaction_type == "sent" else None,
+            description=transaction_data.description,
+            payment_method=transaction_data.payment_method,
+            status=transaction_status
+        )
+        
+        db.add(db_transaction)
+        db.commit()
+        db.refresh(db_transaction)
+        
+        logger.info(
+            f"Transaction created: id={db_transaction.id}, user_id={current_user.id}, "
+            f"type={transaction_data.transaction_type}, amount={transaction_data.amount}"
+        )
+        
+        return db_transaction
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating transaction: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create transaction"
+        )
 
 
 @router.get("/balance")
