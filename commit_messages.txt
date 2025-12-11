@@ -1,3 +1,6 @@
+chore: squashed update of recent changes
+
+Squashed commits:
 - feat: add QR code generator component and remove flake8 output log.
 - refactor(api): simplify header merging using Headers API to remove redundant branching
 - refactor(ml_predictor): extract SMA helper and tighten return typing to remove duplication
