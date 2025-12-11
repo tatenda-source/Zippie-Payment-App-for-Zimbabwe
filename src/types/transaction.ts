@@ -1,0 +1,43 @@
+/**
+ * Transaction-related type definitions
+ */
+
+import type { Currency } from './account';
+
+export type TransactionType = 'sent' | 'received' | 'request';
+export type TransactionStatus = 'completed' | 'pending' | 'failed';
+
+export interface Transaction {
+    id: string;
+    type: TransactionType;
+    amount: number;
+    currency: Currency;
+    recipient: string;
+    sender?: string;
+    description: string;
+    status: TransactionStatus;
+    date: string;
+    paymentMethod?: string;
+}
+
+export interface TransactionFilter {
+    type?: TransactionType;
+    status?: TransactionStatus;
+    currency?: Currency;
+    startDate?: string;
+    endDate?: string;
+    searchTerm?: string;
+}
+
+export interface PaymentData {
+    type: 'send' | 'request';
+    amount: number;
+    currency: Currency;
+    recipient?: string;
+    recipients?: string[];
+    description: string;
+    account?: string;
+    fee?: number;
+    paymentMethod?: string;
+    link?: string;
+}

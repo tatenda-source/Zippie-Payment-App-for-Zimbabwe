@@ -1,7 +1,14 @@
 /**
  * Tests for API service
  */
-import { authAPI, paymentsAPI, stocksAPI, watchlistsAPI, setAuthToken, getAuthToken } from '../../services/api';
+import {
+  authAPI,
+  paymentsAPI,
+  stocksAPI,
+  watchlistsAPI,
+  setAuthToken,
+  getAuthToken,
+} from '../../services/api';
 
 // Mock fetch
 global.fetch = jest.fn();
@@ -318,4 +325,3 @@ describe('API Service', () => {
     });
   });
 });
-

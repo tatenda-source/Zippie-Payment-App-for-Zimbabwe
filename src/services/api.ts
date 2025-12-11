@@ -3,6 +3,8 @@
  * Connects frontend to FastAPI backend
  */
 
+import { logger } from '../utils/logger';
+
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 
 // Authentication token management
@@ -22,36 +24,50 @@ export const getAuthToken = (): string | null => {
 };
 
 // API Request helper
-async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  // Use the Headers API to normalize and merge any provided headers
+  const headers = new Headers(options.headers as HeadersInit);
+  // Ensure JSON by default when not specified
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const startTime = Date.now();
+  logger.apiCall(endpoint, options.method || 'GET');
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      // Unauthorized - clear token and redirect to login
-      setAuthToken(null);
-      throw new Error('Unauthorized');
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    const responseTime = Date.now() - startTime;
+    logger.apiResponse(endpoint, response.status, responseTime);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Unauthorized - clear token and redirect to login
+        setAuthToken(null);
+        logger.error('Unauthorized API request', new Error('Unauthorized'));
+        throw new Error('Unauthorized');
+      }
+      const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
+      logger.error(
+        `API request failed: ${endpoint}`,
+        new Error(error.detail || `HTTP error! status: ${response.status}`)
+      );
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
     }
-    const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
-    throw new Error(error.detail || `HTTP error! status: ${response.status}`);
-  }
 
-  return response.json();
+    return response.json();
+  } catch (error) {
+    logger.error(`API request exception: ${endpoint}`, error);
+    throw error;
+  }
 }
 
 // Auth API
@@ -200,4 +216,3 @@ export const watchlistsAPI = {
     });
   },
 };
-

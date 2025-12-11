@@ -2,9 +2,10 @@
 Pydantic schemas for request/response validation
 """
 
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
 from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, EmailStr
 
 
 # User Schemas
@@ -23,7 +24,7 @@ class UserResponse(UserBase):
     is_active: bool
     is_verified: bool
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -46,7 +47,7 @@ class AccountResponse(AccountBase):
     balance: float
     is_active: bool
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -73,7 +74,7 @@ class TransactionResponse(TransactionBase):
     status: str
     fee: float
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -94,7 +95,7 @@ class WatchlistResponse(WatchlistBase):
     id: int
     user_id: int
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -140,4 +141,3 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
-

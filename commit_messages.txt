@@ -1,0 +1,11 @@
+- feat: add QR code generator component and remove flake8 output log.
+- refactor(api): simplify header merging using Headers API to remove redundant branching
+- refactor(ml_predictor): extract SMA helper and tighten return typing to remove duplication
+- refactor(stock_api): reuse AsyncClient to avoid repeated creation and improve perf
+- feat: improve multi-currency support with conversion and rates
+- feat: add enhanced transaction filtering with search and filters
+- chore: Remove various D3, Recharts, and UI-related dependencies from node_modules.
+- refactor: Centralize application state and navigation using custom hooks and Context API.
+- decluttering
+- fix: resolve CORS issue with backend proxy
+- fix: resolve all compilation errors

@@ -1,23 +1,23 @@
 """
 Pytest configuration and shared fixtures
 """
+import os
+
 import pytest
+from faker import Faker
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-import os
-from faker import Faker
+
+from app.core.security import get_password_hash
+from app.db import models
+from app.db.database import Base, get_db
+from app.main import app
 
 # Set test environment before importing app
 os.environ["ENVIRONMENT"] = "test"
-os.environ["SECRET_KEY"] = "test-secret-key-for-testing-purposes-only-32-chars"
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-
-from app.main import app
-from app.db.database import Base, get_db
-from app.db import models
-from app.core.security import get_password_hash
+os.environ["SECRET_KEY"] = "test-secret-key-for-testing"
 
 fake = Faker()
 
@@ -32,7 +32,9 @@ engine = create_engine(
 )
 
 # Create test session factory
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=engine
+)
 
 
 @pytest.fixture(scope="function")
@@ -50,12 +52,13 @@ def db_session():
 @pytest.fixture(scope="function")
 def client(db_session):
     """Create a test client with database override"""
+
     def override_get_db():
         try:
             yield db_session
         finally:
             pass
-    
+
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:
         yield test_client
@@ -71,7 +74,7 @@ def test_user(db_session):
         full_name=fake.name(),
         hashed_password=get_password_hash("TestPassword123"),
         is_active=True,
-        is_verified=True
+        is_verified=True,
     )
     db_session.add(user)
     db_session.commit()
@@ -84,10 +87,7 @@ def test_user_token(test_user, client):
     """Get authentication token for test user"""
     response = client.post(
         "/api/v1/auth/login",
-        data={
-            "username": test_user.email,
-            "password": "TestPassword123"
-        }
+        data={"username": test_user.email, "password": "TestPassword123"},
     )
     return response.json()["access_token"]
 
@@ -97,7 +97,7 @@ def authenticated_client(client, test_user_token):
     """Create an authenticated test client"""
     client.headers = {
         **client.headers,
-        "Authorization": f"Bearer {test_user_token}"
+        "Authorization": f"Bearer {test_user_token}",
     }
     return client
 
@@ -111,10 +111,9 @@ def test_account(db_session, test_user):
         balance=1000.0,
         currency="USD",
         account_type="primary",
-        is_active=True
+        is_active=True,
     )
     db_session.add(account)
     db_session.commit()
     db_session.refresh(account)
     return account
-

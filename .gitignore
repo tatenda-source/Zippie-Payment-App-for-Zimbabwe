@@ -145,3 +145,7 @@ backend/*.sqlite
 .DS_Store
 Thumbs.db
 
+
+
+# Generated files
+backend/flake8_output.txt
