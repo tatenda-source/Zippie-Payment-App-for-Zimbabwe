@@ -2,43 +2,77 @@
  * Custom hook for transaction management
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Transaction, TransactionFilter, PaymentData } from '../types/transaction';
+import { paymentsAPI } from '../services/api';
 
 export interface UseTransactionsReturn {
     transactions: Transaction[];
-    addTransaction: (data: PaymentData) => Transaction;
+    loading: boolean;
+    error: string | null;
+    addTransaction: (data: PaymentData) => Promise<Transaction>;
     getFilteredTransactions: (filter?: TransactionFilter) => Transaction[];
     getTransactionById: (id: string) => Transaction | undefined;
     getRecentTransactions: (limit: number) => Transaction[];
+    refreshTransactions: () => Promise<void>;
 }
 
 /**
  * Hook for managing transactions
- * @param initialTransactions - Initial transaction data
+ * @param initialTransactions - Initial transaction data (fallback)
  * @returns Transaction state and methods
  */
 export function useTransactions(
     initialTransactions: Transaction[] = []
 ): UseTransactionsReturn {
     const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const refreshTransactions = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await paymentsAPI.getTransactions();
+            setTransactions(data);
+            setError(null);
+        } catch (err) {
+            console.error('Failed to fetch transactions:', err);
+            setError('Failed to fetch transactions');
+            // Keep initialTransactions if fetch fails to avoid empty screen in demo mode?
+            // For now, let's assume valid API connection or empty state.
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Initial fetch
+    useEffect(() => {
+        refreshTransactions();
+    }, [refreshTransactions]);
 
     const addTransaction = useCallback(
-        (data: PaymentData): Transaction => {
-            const newTransaction: Transaction = {
-                id: Date.now().toString(),
-                type: data.type === 'send' ? 'sent' : 'request',
-                amount: data.amount,
-                currency: data.currency,
-                recipient: data.recipient || data.recipients?.join(', ') || 'Multiple recipients',
-                description: data.description,
-                status: 'completed',
-                date: new Date().toISOString(),
-                paymentMethod: data.paymentMethod || 'Zippie',
-            };
+        async (data: PaymentData): Promise<Transaction> => {
+            setLoading(true);
+            try {
+                const newTransaction = await paymentsAPI.createTransaction({
+                    transaction_type: data.type === 'send' ? 'sent' : 'request',
+                    amount: data.amount,
+                    currency: data.currency,
+                    recipient: data.recipient || data.recipients?.join(', ') || 'Multiple recipients',
+                    description: data.description,
+                    payment_method: data.paymentMethod,
+                    account_id: data.account, // API service handles string->int conversion if needed
+                });
 
-            setTransactions(prev => [newTransaction, ...prev]);
-            return newTransaction;
+                setTransactions(prev => [newTransaction, ...prev]);
+                return newTransaction;
+            } catch (err) {
+                console.error('Failed to create transaction:', err);
+                setError('Failed to create transaction');
+                throw err;
+            } finally {
+                setLoading(false);
+            }
         },
         []
     );
@@ -94,9 +128,12 @@ export function useTransactions(
 
     return {
         transactions,
+        loading,
+        error,
         addTransaction,
         getFilteredTransactions,
         getTransactionById,
         getRecentTransactions,
+        refreshTransactions,
     };
 }
