@@ -68,7 +68,7 @@ interface AppContextValue {
 
     // Transactions
     transactions: Transaction[];
-    addTransaction: (data: PaymentData) => Transaction;
+    addTransaction: (data: PaymentData) => Promise<Transaction>;
     getRecentTransactions: (limit: number) => Transaction[];
 
     // Navigation
@@ -78,7 +78,7 @@ interface AppContextValue {
     goBack: () => void;
 
     // Payment handling
-    handlePaymentSuccess: (data: PaymentData) => void;
+    handlePaymentSuccess: (data: PaymentData) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -103,21 +103,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const addTransaction = useCallback(
-        (data: PaymentData): Transaction => {
-            return transactionManager.addTransaction(data);
+        async (data: PaymentData): Promise<Transaction> => {
+            return await transactionManager.addTransaction(data);
         },
         [transactionManager]
     );
 
     const handlePaymentSuccess = useCallback(
-        (data: PaymentData) => {
+        async (data: PaymentData) => {
             // Update accounts if money was sent
             if (data.type === 'send' && data.account) {
                 updateAccountBalance(data.account, data.amount + (data.fee || 0));
             }
 
             // Add transaction
-            addTransaction(data);
+            await addTransaction(data);
 
             // Navigate to success screen
             navigation.navigate('payment-success', {
