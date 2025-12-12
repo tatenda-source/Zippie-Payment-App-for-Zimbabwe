@@ -12,7 +12,7 @@ import type { Account } from '../App';
 interface SendMoneyProps {
   accounts: Account[];
   onBack: () => void;
-  onSuccess: (data: any) => void;
+  onSuccess: (data: any) => Promise<void> | void;
 }
 
 export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
@@ -22,6 +22,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
   const [recipient, setRecipient] = useState('');
   const [description, setDescription] = useState('');
   const [recipientMethod, setRecipientMethod] = useState('phone');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const formatCurrency = (amount: number, currency: 'USD' | 'ZWL') => {
     if (currency === 'USD') {
@@ -38,21 +39,28 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
     }
   };
 
-  const handleSend = () => {
-    const transactionData = {
-      type: 'send',
-      amount: parseFloat(amount),
-      currency: selectedAccount?.currency,
-      recipient,
-      description,
-      account: selectedAccount?.name,
-      fee: parseFloat(amount) * 0.01, // 1% fee
-    };
-    onSuccess(transactionData);
+  const handleSend = async () => {
+    setIsProcessing(true);
+    try {
+      const transactionData = {
+        type: 'send',
+        amount: parseFloat(amount),
+        currency: selectedAccount?.currency,
+        recipient,
+        description,
+        account: selectedAccount?.name,
+        fee: parseFloat(amount) * 0.01, // 1% fee
+      };
+      await onSuccess(transactionData);
+    } catch (error) {
+      console.error('Payment failed', error);
+      setIsProcessing(false);
+    }
   };
 
   const renderSourceSelection = () => (
     <div className='space-y-6'>
+      {/* ... no changes needed here but I'm replacing block so just keep calm */}
       <div className='text-center mb-6'>
         <h2 className='text-xl font-semibold mb-2'>Select Payment Source</h2>
         <p className='text-gray-500'>Choose which account to send from</p>
@@ -62,11 +70,10 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
         {accounts.map(account => (
           <Card
             key={account.id}
-            className={`cursor-pointer transition-all ${
-              selectedAccount?.id === account.id
+            className={`cursor-pointer transition-all ${selectedAccount?.id === account.id
                 ? 'ring-2 ring-primary border-primary'
                 : 'border-gray-200 hover:border-gray-300'
-            }`}
+              }`}
             onClick={() => setSelectedAccount(account)}
           >
             <CardContent className='p-4'>
@@ -261,11 +268,11 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
         </Card>
 
         <div className='flex gap-3'>
-          <Button variant='outline' onClick={() => setStep('recipient')} className='flex-1'>
+          <Button variant='outline' onClick={() => setStep('recipient')} className='flex-1' disabled={isProcessing}>
             Back
           </Button>
-          <Button onClick={handleSend} className='flex-1'>
-            Send Money
+          <Button onClick={handleSend} className='flex-1' disabled={isProcessing}>
+            {isProcessing ? 'Sending...' : 'Send Money'}
           </Button>
         </div>
       </div>
