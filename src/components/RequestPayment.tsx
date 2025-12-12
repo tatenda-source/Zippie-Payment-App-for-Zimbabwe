@@ -20,7 +20,7 @@ import {
 
 interface RequestPaymentProps {
   onBack: () => void;
-  onSuccess: (data: any) => void;
+  onSuccess: (data: any) => Promise<void> | void;
 }
 
 export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
@@ -31,6 +31,7 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
   const [dueDate, setDueDate] = useState('');
   const [recipients, setRecipients] = useState<string[]>(['']);
   const [copied, setCopied] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const paymentLink = `https://zippie.co.zw/pay/${Math.random().toString(36).substr(2, 9)}`;
 
@@ -66,19 +67,27 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
     }
   };
 
-  const handleCreateRequest = () => {
-    const requestData = {
-      type: 'request',
-      amount: parseFloat(amount),
-      currency,
-      description,
-      recipients: recipients.filter(r => r.trim() !== ''),
-      dueDate,
-      link: paymentLink,
-      qrCode: true,
-    };
-    onSuccess(requestData);
+  const handleCreateRequest = async () => {
+    setIsProcessing(true);
+    try {
+      const requestData = {
+        type: 'request',
+        amount: parseFloat(amount),
+        currency,
+        description,
+        recipients: recipients.filter(r => r.trim() !== ''),
+        dueDate,
+        link: paymentLink,
+        qrCode: true,
+      };
+      await onSuccess(requestData);
+    } catch (error) {
+      console.error('Request failed', error);
+      setIsProcessing(false);
+    }
   };
+
+  // ... (keeping helper functions as they are not changed in this block replacement target)
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(paymentLink);
@@ -94,6 +103,7 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
 
   const renderDetailsForm = () => (
     <div className='space-y-6'>
+      {/* ... keeping content */}
       <div className='text-center mb-6'>
         <h2 className='text-xl font-semibold mb-2'>Request Payment</h2>
         <p className='text-gray-500'>Enter the amount and details</p>
@@ -174,6 +184,7 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
 
   const renderRecipientsForm = () => (
     <div className='space-y-6'>
+      {/* ... keeping content */}
       <div className='text-center mb-6'>
         <h2 className='text-xl font-semibold mb-2'>Who should pay?</h2>
         <p className='text-gray-500'>Add recipients for this request</p>
@@ -324,11 +335,11 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
       </div>
 
       <div className='flex gap-3'>
-        <Button variant='outline' onClick={() => setStep('recipients')} className='flex-1'>
+        <Button variant='outline' onClick={() => setStep('recipients')} className='flex-1' disabled={isProcessing}>
           Back
         </Button>
-        <Button onClick={handleCreateRequest} className='flex-1'>
-          Create Request
+        <Button onClick={handleCreateRequest} className='flex-1' disabled={isProcessing}>
+          {isProcessing ? 'Creating...' : 'Create Request'}
         </Button>
       </div>
     </div>
