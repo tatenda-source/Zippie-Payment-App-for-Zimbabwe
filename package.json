@@ -1,6 +1,7 @@
 {
-  "name": "ai-stock-predictor",
+  "name": "zippie-payment-app",
   "version": "1.0.0",
+  "description": "Zippie Payment App for Zimbabwe",
   "private": true,
   "dependencies": {
     "@types/node": "^20.0.0",
