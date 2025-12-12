@@ -28,7 +28,7 @@ export function QRCodeGenerator({
     const generateQRCodeSVG = (text: string, size: number) => {
         // This is a simplified placeholder
         // In a real implementation, use a proper QR code library
-        const encodedData = encodeURIComponent(text);
+
 
         return `
       <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
