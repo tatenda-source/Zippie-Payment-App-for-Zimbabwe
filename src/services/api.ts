@@ -4,6 +4,8 @@
  */
 
 import { logger } from '../utils/logger';
+import type { Transaction, TransactionType, TransactionStatus } from '../types/transaction';
+import type { Account, Currency, AccountType } from '../types/account';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 
@@ -26,9 +28,8 @@ export const getAuthToken = (): string | null => {
 // API Request helper
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
-  // Use the Headers API to normalize and merge any provided headers
   const headers = new Headers(options.headers as HeadersInit);
-  // Ensure JSON by default when not specified
+
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
@@ -50,8 +51,8 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 
     if (!response.ok) {
       if (response.status === 401) {
-        // Unauthorized - clear token and redirect to login
         setAuthToken(null);
+        // Dispatch event or callback to redirect to login would be better here
         logger.error('Unauthorized API request', new Error('Unauthorized'));
         throw new Error('Unauthorized');
       }
@@ -70,6 +71,57 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   }
 }
 
+// Backend Types mapping
+interface BackendAccount {
+  id: number;
+  name: string;
+  currency: string;
+  account_type: string;
+  color: string;
+  balance: number;
+  is_active: boolean;
+  user_id: number;
+  created_at: string;
+}
+
+interface BackendTransaction {
+  id: number;
+  transaction_type: string;
+  amount: number;
+  currency: string;
+  recipient: string;
+  sender?: string;
+  description?: string;
+  payment_method?: string;
+  status: string;
+  created_at: string;
+  account_id?: number;
+  fee?: number;
+}
+
+// Adapters
+const mapAccount = (acc: BackendAccount): Account => ({
+  id: acc.id.toString(),
+  name: acc.name,
+  balance: acc.balance,
+  currency: acc.currency as Currency,
+  color: acc.color,
+  type: acc.account_type as AccountType
+});
+
+const mapTransaction = (tx: BackendTransaction): Transaction => ({
+  id: tx.id.toString(),
+  type: tx.transaction_type as TransactionType,
+  amount: tx.amount,
+  currency: tx.currency as Currency,
+  recipient: tx.recipient,
+  sender: tx.sender,
+  description: tx.description || '',
+  status: tx.status as TransactionStatus,
+  date: tx.created_at,
+  paymentMethod: tx.payment_method || 'Zippie Balance'
+});
+
 // Auth API
 export const authAPI = {
   register: async (userData: {
@@ -78,14 +130,13 @@ export const authAPI = {
     full_name: string;
     password: string;
   }) => {
-    const response = await apiRequest<{ access_token: string; token_type: string }>(
+    return apiRequest<{ access_token: string; token_type: string }>(
       '/auth/register',
       {
         method: 'POST',
         body: JSON.stringify(userData),
       }
     );
-    return response;
   },
 
   login: async (email: string, password: string) => {
@@ -116,7 +167,7 @@ export const authAPI = {
   },
 };
 
-// Stocks API
+// Stocks API - Keeping as is for now, but should likely be refactored later
 export const stocksAPI = {
   getQuote: async (symbol: string) => {
     return apiRequest(`/stocks/quote/${symbol}`);
@@ -146,8 +197,9 @@ export const stocksAPI = {
 
 // Payments API
 export const paymentsAPI = {
-  getAccounts: async () => {
-    return apiRequest('/payments/accounts');
+  getAccounts: async (): Promise<Account[]> => {
+    const accounts = await apiRequest<BackendAccount[]>('/payments/accounts');
+    return accounts.map(mapAccount);
   },
 
   createAccount: async (accountData: {
@@ -155,15 +207,17 @@ export const paymentsAPI = {
     currency?: string;
     account_type?: string;
     color?: string;
-  }) => {
-    return apiRequest('/payments/accounts', {
+  }): Promise<Account> => {
+    const account = await apiRequest<BackendAccount>('/payments/accounts', {
       method: 'POST',
       body: JSON.stringify(accountData),
     });
+    return mapAccount(account);
   },
 
-  getTransactions: async (limit: number = 50) => {
-    return apiRequest(`/payments/transactions?limit=${limit}`);
+  getTransactions: async (limit: number = 50): Promise<Transaction[]> => {
+    const transactions = await apiRequest<BackendTransaction[]>(`/payments/transactions?limit=${limit}`);
+    return transactions.map(mapTransaction);
   },
 
   createTransaction: async (transactionData: {
@@ -173,16 +227,28 @@ export const paymentsAPI = {
     recipient: string;
     description?: string;
     payment_method?: string;
-    account_id?: number;
-  }) => {
-    return apiRequest('/payments/transactions', {
+    account_id?: number | string; // Accept string as we agreed to support string IDs in frontend
+  }): Promise<Transaction> => {
+    // If account_id is provided as string, try to parse it to int for backend
+    const payload = { ...transactionData };
+    if (payload.account_id && typeof payload.account_id === 'string') {
+      payload.account_id = parseInt(payload.account_id, 10);
+    }
+
+    const transaction = await apiRequest<BackendTransaction>('/payments/transactions', {
       method: 'POST',
-      body: JSON.stringify(transactionData),
+      body: JSON.stringify(payload),
     });
+    return mapTransaction(transaction);
   },
 
   getBalance: async () => {
-    return apiRequest('/payments/balance');
+    const balanceData = await apiRequest<{ USD: number, ZWL: number, accounts: BackendAccount[] }>('/payments/balance');
+    return {
+      USD: balanceData.USD,
+      ZWL: balanceData.ZWL,
+      accounts: balanceData.accounts.map(mapAccount)
+    };
   },
 };
 
