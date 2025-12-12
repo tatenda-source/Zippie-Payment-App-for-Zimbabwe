@@ -18,6 +18,7 @@ export interface Transaction {
     status: TransactionStatus;
     date: string;
     paymentMethod?: string;
+    fee?: number;
 }
 
 export interface TransactionFilter {
