@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Copy, Check, Download } from 'lucide-react';
+import { logger } from '../utils/logger';
 
 interface QRCodeGeneratorProps {
     data: string;
@@ -49,7 +50,7 @@ export function QRCodeGenerator({
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (error) {
-            console.error('Failed to copy:', error);
+            logger.error('Failed to copy', error);
         }
     };
 

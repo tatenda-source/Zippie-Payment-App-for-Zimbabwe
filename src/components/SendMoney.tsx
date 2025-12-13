@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from './ui/separator';
 import { Badge } from './ui/badge';
 import { ChevronLeft, Wallet, Shield, Clock, ArrowRight } from 'lucide-react';
+import { logger } from '../utils/logger';
 import type { Account } from '../App';
 
 interface SendMoneyProps {
@@ -53,7 +54,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
       };
       await onSuccess(transactionData);
     } catch (error) {
-      console.error('Payment failed', error);
+      logger.error('Payment failed', error);
       setIsProcessing(false);
     }
   };
@@ -71,8 +72,8 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
           <Card
             key={account.id}
             className={`cursor-pointer transition-all ${selectedAccount?.id === account.id
-                ? 'ring-2 ring-primary border-primary'
-                : 'border-gray-200 hover:border-gray-300'
+              ? 'ring-2 ring-primary border-primary'
+              : 'border-gray-200 hover:border-gray-300'
               }`}
             onClick={() => setSelectedAccount(account)}
           >

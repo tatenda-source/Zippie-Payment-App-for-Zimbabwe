@@ -5,6 +5,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Transaction, TransactionFilter, PaymentData } from '../types/transaction';
 import { paymentsAPI } from '../services/api';
+import { logger } from '../utils/logger';
 
 export interface UseTransactionsReturn {
     transactions: Transaction[];
@@ -36,7 +37,7 @@ export function useTransactions(
             setTransactions(data);
             setError(null);
         } catch (err) {
-            console.error('Failed to fetch transactions:', err);
+            logger.error('Failed to fetch transactions', err);
             setError('Failed to fetch transactions');
             // Keep initialTransactions if fetch fails to avoid empty screen in demo mode?
             // For now, let's assume valid API connection or empty state.
@@ -67,7 +68,7 @@ export function useTransactions(
                 setTransactions(prev => [newTransaction, ...prev]);
                 return newTransaction;
             } catch (err) {
-                console.error('Failed to create transaction:', err);
+                logger.error('Failed to create transaction', err);
                 setError('Failed to create transaction');
                 throw err;
             } finally {

@@ -17,6 +17,7 @@ import {
   Users,
   User,
 } from 'lucide-react';
+import { logger } from '../utils/logger';
 
 interface RequestPaymentProps {
   onBack: () => void;
@@ -82,7 +83,7 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
       };
       await onSuccess(requestData);
     } catch (error) {
-      console.error('Request failed', error);
+      logger.error('Request failed', error);
       setIsProcessing(false);
     }
   };
