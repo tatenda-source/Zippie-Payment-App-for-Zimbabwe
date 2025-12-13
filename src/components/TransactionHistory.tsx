@@ -14,6 +14,7 @@ import { TransactionFilter } from './TransactionFilter';
 import { formatCurrency } from '../utils/currency';
 import { getStatusIcon, getStatusColorClass } from '../utils/status';
 import { formatTransactionDate } from '../utils/date';
+import { logger } from '../utils/logger';
 import type { Transaction } from '../App';
 import type { TransactionFilter as FilterType } from '../types/transaction';
 
@@ -105,8 +106,43 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
   }, [filter]);
 
   const handleExport = () => {
-    // TODO: Implement export functionality
-    console.log('Exporting transactions...');
+    logger.info('Exporting transactions to CSV');
+    try {
+      if (filteredTransactions.length === 0) {
+        logger.warn('No transactions to export');
+        return;
+      }
+
+      const headers = ['Date', 'Type', 'Amount', 'Currency', 'Status', 'Recipient', 'Sender', 'Description', 'Payment Method'];
+      const csvContent = [
+        headers.join(','),
+        ...filteredTransactions.map(t => [
+          new Date(t.date).toISOString(),
+          t.type,
+          t.amount,
+          t.currency,
+          t.status,
+          `"${t.recipient.replace(/"/g, '""')}"`,
+          `"${(t.sender || '').replace(/"/g, '""')}"`,
+          `"${(t.description.replace(/"/g, '""')}"`,
+          `"${(t.paymentMethod || '').replace(/"/g, '""')}"`
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      logger.error('Failed to export transactions', error);
+    }
   };
 
   return (
