@@ -10,6 +10,8 @@ import type { Account, Currency, AccountType } from '../types/account';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 
 // Authentication token management
+// [SECURITY] CAUTION: Storing tokens in localStorage is vulnerable to XSS.
+// TODO: Migrate to HttpOnly cookies for better security in production V2.
 let authToken: string | null = localStorage.getItem('auth_token');
 
 export const setAuthToken = (token: string | null) => {
@@ -26,6 +28,12 @@ export const getAuthToken = (): string | null => {
 };
 
 // API Request helper
+/**
+ * Generic API request wrapper with auth handling and logging.
+ * @template T - The expected response type
+ * @param endpoint - The API endpoint (starting with /)
+ * @param options - Fetch options
+ */
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
   const headers = new Headers(options.headers as HeadersInit);
