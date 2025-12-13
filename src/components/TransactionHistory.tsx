@@ -124,7 +124,7 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
           t.status,
           `"${t.recipient.replace(/"/g, '""')}"`,
           `"${(t.sender || '').replace(/"/g, '""')}"`,
-          `"${(t.description.replace(/"/g, '""')}"`,
+          `"${t.description.replace(/"/g, '""')}"`,
           `"${(t.paymentMethod || '').replace(/"/g, '""')}"`
         ].join(','))
       ].join('\n');
