@@ -25,20 +25,6 @@ export function formatCurrency(amount: number, currency: Currency = 'USD'): stri
 }
 
 /**
- * Format stock price change with sign and percentage
- * @param change - The absolute change amount
- * @param changePercent - The percentage change
- * @returns Formatted change string
- */
-export function formatChange(change: number, changePercent: number): string {
-  const sign = change >= 0 ? '+' : '';
-  const formattedChange = Math.abs(change).toFixed(2);
-  const formattedPercent = Math.abs(changePercent).toFixed(2);
-
-  return `${sign}$${formattedChange} (${sign}${formattedPercent}%)`;
-}
-
-/**
  * Format amount for display without currency symbol
  * @param amount - The amount to format
  * @param decimals - Number of decimal places (default: 2)
@@ -80,13 +66,3 @@ export function calculateFee(amount: number, feePercent: number = 1.5): number {
   return (amount * feePercent) / 100;
 }
 
-/**
- * Get color class for positive/negative changes
- * @param value - The value to check
- * @returns Tailwind color class
- */
-export function getChangeColorClass(value: number): string {
-  if (value > 0) return 'text-green-600';
-  if (value < 0) return 'text-red-600';
-  return 'text-gray-600';
-}

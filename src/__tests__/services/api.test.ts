@@ -4,8 +4,6 @@
 import {
   authAPI,
   paymentsAPI,
-  stocksAPI,
-  watchlistsAPI,
   setAuthToken,
   getAuthToken,
 } from '../../services/api';
@@ -169,119 +167,6 @@ describe('API Service', () => {
         expect.objectContaining({
           method: 'POST',
           body: expect.any(String),
-        })
-      );
-
-      expect(result).toEqual(mockResponse);
-    });
-  });
-
-  describe('Stocks API', () => {
-    beforeEach(() => {
-      setAuthToken('test-token');
-    });
-
-    it('should get stock quote', async () => {
-      const mockResponse = {
-        symbol: 'AAPL',
-        price: 150.0,
-        change: 2.5,
-        change_percent: 1.67,
-      };
-
-      (fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
-
-      const result = await stocksAPI.getQuote('AAPL');
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/stocks/quote/AAPL'),
-        expect.any(Object)
-      );
-
-      expect(result).toEqual(mockResponse);
-    });
-
-    it('should get historical data', async () => {
-      const mockResponse = [
-        {
-          date: '2024-01-01',
-          open: 100,
-          high: 105,
-          low: 99,
-          close: 103,
-          volume: 1000000,
-        },
-      ];
-
-      (fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
-
-      const result = await stocksAPI.getHistoricalData('AAPL', '1mo');
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/stocks/historical/AAPL'),
-        expect.any(Object)
-      );
-
-      expect(result).toEqual(mockResponse);
-    });
-  });
-
-  describe('Watchlists API', () => {
-    beforeEach(() => {
-      setAuthToken('test-token');
-    });
-
-    it('should get watchlist', async () => {
-      const mockResponse = [
-        {
-          id: 1,
-          symbol: 'AAPL',
-          exchange: 'NASDAQ',
-        },
-      ];
-
-      (fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
-
-      const result = await watchlistsAPI.getWatchlist();
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/watchlists'),
-        expect.any(Object)
-      );
-
-      expect(result).toEqual(mockResponse);
-    });
-
-    it('should add to watchlist', async () => {
-      const mockResponse = {
-        id: 1,
-        symbol: 'AAPL',
-        exchange: 'NASDAQ',
-      };
-
-      (fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
-
-      const result = await watchlistsAPI.addToWatchlist({
-        symbol: 'AAPL',
-        exchange: 'NASDAQ',
-      });
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/watchlists'),
-        expect.objectContaining({
-          method: 'POST',
         })
       );
 

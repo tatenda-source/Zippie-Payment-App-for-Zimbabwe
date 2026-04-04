@@ -14,11 +14,11 @@ class Settings(BaseSettings):
     # Application
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
-    PROJECT_NAME: str = "Hippie Fintech Platform"
+    PROJECT_NAME: str = "Zippie Payment Platform"
 
     # Database
     DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", "postgresql://user:password@localhost:5432/hippie_db"
+        "DATABASE_URL", "postgresql://user:password@localhost:5432/zippie_db"
     )
 
     # JWT
@@ -40,12 +40,6 @@ class Settings(BaseSettings):
         ):
             return False
         return len(self.SECRET_KEY) >= 32
-
-    # Stock API
-    ALPHA_VANTAGE_API_KEY: str = os.getenv("ALPHA_VANTAGE_API_KEY", "")
-    YAHOO_FINANCE_ENABLED: bool = (
-        os.getenv("YAHOO_FINANCE_ENABLED", "true").lower() == "true"
-    )
 
     # CORS
     _cors_origins = os.getenv("CORS_ORIGINS", "")

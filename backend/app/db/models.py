@@ -1,5 +1,5 @@
 """
-Database models for Hippie Fintech Platform
+Database models for Zippie Payment Platform
 """
 
 from sqlalchemy import (
@@ -12,7 +12,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -41,9 +40,6 @@ class User(Base):
     )
     transactions = relationship(
         "Transaction", back_populates="user", cascade="all, delete-orphan"
-    )
-    watchlists = relationship(
-        "Watchlist", back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -96,22 +92,3 @@ class Transaction(Base):
     account = relationship("Account", back_populates="transactions")
 
 
-class Watchlist(Base):
-    """Watchlist model for stock tracking"""
-
-    __tablename__ = "watchlists"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    symbol = Column(String, nullable=False, index=True)
-    exchange = Column(String, nullable=True)  # NASDAQ, NYSE, ZSE, etc.
-    target_price = Column(Float, nullable=True)
-    notes = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    # Relationships
-    user = relationship("User", back_populates="watchlists")
-
-    # Unique constraint: one symbol per user
-    __table_args__ = (UniqueConstraint("user_id", "symbol", name="uq_user_symbol"),)

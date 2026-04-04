@@ -175,34 +175,6 @@ export const authAPI = {
   },
 };
 
-// Stocks API - Keeping as is for now, but should likely be refactored later
-export const stocksAPI = {
-  getQuote: async (symbol: string) => {
-    return apiRequest(`/stocks/quote/${symbol}`);
-  },
-
-  getMultipleQuotes: async (symbols: string[]) => {
-    const symbolsStr = symbols.join(',');
-    return apiRequest(`/stocks/quote?symbols=${symbolsStr}`);
-  },
-
-  getHistoricalData: async (symbol: string, period: string = '1mo') => {
-    return apiRequest(`/stocks/historical/${symbol}?period=${period}`);
-  },
-
-  getPrediction: async (symbol: string, timeframe: string = '1d') => {
-    return apiRequest(`/stocks/predict/${symbol}?timeframe=${timeframe}`);
-  },
-
-  searchStocks: async (query: string) => {
-    return apiRequest(`/stocks/search?q=${encodeURIComponent(query)}`);
-  },
-
-  getPopularStocks: async () => {
-    return apiRequest('/stocks/popular');
-  },
-};
-
 // Payments API
 export const paymentsAPI = {
   getAccounts: async (): Promise<Account[]> => {
@@ -260,33 +232,3 @@ export const paymentsAPI = {
   },
 };
 
-// Watchlists API
-export const watchlistsAPI = {
-  getWatchlist: async () => {
-    return apiRequest('/watchlists');
-  },
-
-  addToWatchlist: async (watchlistData: {
-    symbol: string;
-    exchange?: string;
-    target_price?: number;
-    notes?: string;
-  }) => {
-    return apiRequest('/watchlists', {
-      method: 'POST',
-      body: JSON.stringify(watchlistData),
-    });
-  },
-
-  removeFromWatchlist: async (watchlistId: number) => {
-    return apiRequest(`/watchlists/${watchlistId}`, {
-      method: 'DELETE',
-    });
-  },
-
-  removeFromWatchlistBySymbol: async (symbol: string) => {
-    return apiRequest(`/watchlists/symbol/${symbol}`, {
-      method: 'DELETE',
-    });
-  },
-};

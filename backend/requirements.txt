@@ -13,36 +13,21 @@ alembic==1.12.1
 
 # HTTP Client
 httpx==0.25.2
-aiohttp==3.9.1
-requests==2.31.0
-
-# Data Processing
-pandas==2.2.1
-
-# Code Quality
-black==23.11.0
-isort==5.12.0
-flake8==6.1.0
-mypy==1.7.1
-numpy==1.26.2
-scikit-learn==1.3.2
-
-# ML Models
-tensorflow==2.15.0
 
 # Utilities
 pydantic==2.5.0
 pydantic-settings==2.1.0
 python-dateutil==2.8.2
 
+# Code Quality
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.1
+
 # Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
 pytest-mock==3.12.0
-httpx==0.25.2
 faker==20.1.0
-
-# CORS is handled by FastAPI's built-in CORSMiddleware
-
-httpx

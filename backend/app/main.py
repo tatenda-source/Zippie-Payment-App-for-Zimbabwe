@@ -1,6 +1,5 @@
 """
-Hippie Fintech Platform - Main Application
-Integrated P2P Payments + Stock Market Insights
+Zippie - P2P Payment Platform for Zimbabwe
 """
 
 import logging
@@ -34,9 +33,9 @@ except Exception as e:
     raise
 
 app = FastAPI(
-    title="Hippie Fintech Platform",
-    description="Integrated P2P Payments + Stock Market Insights",
-    version="1.0.0",
+    title="Zippie Payment Platform",
+    description="P2P Payment System for Zimbabwe",
+    version="2.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
@@ -58,10 +57,9 @@ app.include_router(api_router, prefix="/api/v1")
 async def root():
     """Root endpoint"""
     return {
-        "message": "Hippie Fintech Platform API",
-        "version": "1.0.0",
+        "message": "Zippie Payment Platform API",
+        "version": "2.0.0",
         "status": "healthy",
-        "modules": ["P2P Payments", "Stock Market Insights", "InvestIQ"],
     }
 
 
@@ -93,8 +91,6 @@ async def health_check():
         "database": db_status,
         "services": {
             "p2p": "operational",
-            "stocks": "operational",
-            "ml_predictor": "operational",
         },
     }
 
