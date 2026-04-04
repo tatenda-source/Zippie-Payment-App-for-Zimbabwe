@@ -124,7 +124,9 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
                 className='text-lg pr-16'
               />
               <div className='absolute right-3 top-1/2 transform -translate-y-1/2'>
+                <label htmlFor='currency-select' className='sr-only'>Currency</label>
                 <select
+                  id='currency-select'
                   value={currency}
                   onChange={e => setCurrency(e.target.value as 'USD' | 'ZWL')}
                   className='bg-transparent text-sm font-medium border-0 focus:outline-none'
@@ -201,6 +203,7 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
                 value={recipient}
                 onChange={e => updateRecipient(index, e.target.value)}
                 className='pl-10'
+                aria-label={`Recipient ${index + 1} phone number or email`}
               />
             </div>
             {recipients.length > 1 && (
@@ -208,7 +211,8 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
                 variant='outline'
                 size='sm'
                 onClick={() => removeRecipient(index)}
-                className='px-3'
+                className='px-3 min-w-11 min-h-11'
+                aria-label={`Remove recipient ${index + 1}`}
               >
                 ×
               </Button>
@@ -222,13 +226,13 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
         </Button>
       </div>
 
-      <Card className='bg-yellow-50 border-yellow-200'>
+      <Card className='bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800'>
         <CardContent className='p-4'>
           <div className='flex items-start gap-3'>
-            <MessageSquare className='w-5 h-5 text-yellow-600 mt-0.5' />
+            <MessageSquare className='w-5 h-5 text-yellow-700 dark:text-yellow-400 mt-0.5' />
             <div>
-              <p className='font-medium text-yellow-800'>Tip</p>
-              <p className='text-sm text-yellow-700'>
+              <p className='font-medium text-yellow-800 dark:text-yellow-300'>Tip</p>
+              <p className='text-sm text-yellow-700 dark:text-yellow-400'>
                 You can also share the payment link later via WhatsApp or SMS to reach more people.
               </p>
             </div>
@@ -296,10 +300,13 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
             <div className='flex-1 p-3 bg-gray-50 rounded border text-sm text-gray-600 break-all'>
               {paymentLink}
             </div>
-            <Button variant='outline' size='sm' onClick={copyToClipboard} className='shrink-0'>
+            <Button variant='outline' size='sm' onClick={copyToClipboard} className='shrink-0 min-w-11 min-h-11' aria-label={copied ? 'Link copied' : 'Copy payment link'}>
               {copied ? <Check className='w-4 h-4' /> : <Copy className='w-4 h-4' />}
             </Button>
           </div>
+          {copied && (
+            <p className='text-sm text-green-700 dark:text-green-400 animate-fade-in mt-1'>Copied to clipboard!</p>
+          )}
         </CardContent>
       </Card>
 
@@ -351,7 +358,7 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
       {/* Header */}
       <div className='bg-white border-b px-4 py-4'>
         <div className='flex items-center gap-4'>
-          <Button variant='ghost' size='sm' onClick={onBack}>
+          <Button variant='ghost' size='icon' onClick={onBack} aria-label='Go back' className='min-w-11 min-h-11'>
             <ChevronLeft className='w-5 h-5' />
           </Button>
           <div className='flex items-center gap-2'>
@@ -363,9 +370,11 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
 
       {/* Content */}
       <div className='p-4'>
-        {step === 'details' && renderDetailsForm()}
-        {step === 'recipients' && renderRecipientsForm()}
-        {step === 'preview' && renderPreview()}
+        <div key={step} className='animate-fade-in'>
+          {step === 'details' && renderDetailsForm()}
+          {step === 'recipients' && renderRecipientsForm()}
+          {step === 'preview' && renderPreview()}
+        </div>
       </div>
     </div>
   );

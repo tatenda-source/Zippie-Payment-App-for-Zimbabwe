@@ -66,8 +66,10 @@ export function TransactionFilter({ onFilterChange, activeFilterCount }: Transac
         <div className='space-y-3'>
             {/* Search Bar */}
             <div className='relative'>
-                <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400' />
+                <label htmlFor='transaction-search' className='sr-only'>Search transactions</label>
+                <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground' aria-hidden='true' />
                 <Input
+                    id='transaction-search'
                     type='text'
                     placeholder='Search transactions...'
                     value={searchTerm}
@@ -77,7 +79,8 @@ export function TransactionFilter({ onFilterChange, activeFilterCount }: Transac
                 {searchTerm && (
                     <button
                         onClick={() => handleSearchChange('')}
-                        className='absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600'
+                        className='absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground p-2 -m-2'
+                        aria-label='Clear search'
                     >
                         <X className='w-4 h-4' />
                     </button>
@@ -115,7 +118,7 @@ export function TransactionFilter({ onFilterChange, activeFilterCount }: Transac
                         <div className='space-y-2'>
                             <Label>Transaction Type</Label>
                             <Select value={type} onValueChange={setType}>
-                                <SelectTrigger>
+                                <SelectTrigger aria-label='Filter by transaction type'>
                                     <SelectValue placeholder='All types' />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -131,7 +134,7 @@ export function TransactionFilter({ onFilterChange, activeFilterCount }: Transac
                         <div className='space-y-2'>
                             <Label>Status</Label>
                             <Select value={status} onValueChange={setStatus}>
-                                <SelectTrigger>
+                                <SelectTrigger aria-label='Filter by status'>
                                     <SelectValue placeholder='All statuses' />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -147,7 +150,7 @@ export function TransactionFilter({ onFilterChange, activeFilterCount }: Transac
                         <div className='space-y-2'>
                             <Label>Currency</Label>
                             <Select value={currency} onValueChange={setCurrency}>
-                                <SelectTrigger>
+                                <SelectTrigger aria-label='Filter by currency'>
                                     <SelectValue placeholder='All currencies' />
                                 </SelectTrigger>
                                 <SelectContent>

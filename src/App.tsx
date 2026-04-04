@@ -63,7 +63,13 @@ function AppContent() {
     handlePaymentSuccess,
   ]);
 
-  return <div className='min-h-screen bg-gray-50 max-w-md mx-auto'>{renderScreen}</div>;
+  return (
+    <div className='min-h-screen bg-background max-w-md mx-auto'>
+      <div key={currentScreen} className='animate-slide-in'>
+        {renderScreen}
+      </div>
+    </div>
+  );
 }
 
 export default function App() {

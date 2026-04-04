@@ -39,6 +39,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
   // Paynow-specific state
   const [paymentChannel, setPaymentChannel] = useState<PaymentChannel>('ecocash');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [processingState, setProcessingState] = useState<ProcessingState>({
     status: 'initiating',
   });
@@ -138,6 +139,8 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
     const INTERVAL = 5_000; // 5 seconds
 
     const intervalId = setInterval(async () => {
+      setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+
       if (Date.now() - startTime > TIMEOUT) {
         clearInterval(intervalId);
         setProcessingState(prev => ({
@@ -190,11 +193,15 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
         {accounts.map(account => (
           <Card
             key={account.id}
-            className={`cursor-pointer transition-all ${selectedAccount?.id === account.id
+            className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${selectedAccount?.id === account.id
               ? 'ring-2 ring-primary border-primary'
-              : 'border-gray-200 hover:border-gray-300'
+              : 'border-border hover:border-muted-foreground/30'
               }`}
             onClick={() => setSelectedAccount(account)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedAccount(account); }}}
+            aria-pressed={selectedAccount?.id === account.id}
           >
             <CardContent className='p-4'>
               <div className='flex items-center justify-between'>
@@ -226,6 +233,9 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
         Continue
         <ArrowRight className='w-4 h-4 ml-2' />
       </Button>
+      {!selectedAccount && (
+        <p className='text-sm text-muted-foreground text-center mt-2'>Select an account to continue</p>
+      )}
     </div>
   );
 
@@ -341,11 +351,15 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
       <div className='space-y-3'>
         {/* EcoCash */}
         <Card
-          className={`cursor-pointer transition-all ${paymentChannel === 'ecocash'
-            ? 'ring-2 ring-green-500 border-green-500'
-            : 'border-gray-200 hover:border-gray-300'
+          className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${paymentChannel === 'ecocash'
+            ? 'ring-2 ring-green-600 border-green-600'
+            : 'border-border hover:border-muted-foreground/30'
             }`}
           onClick={() => setPaymentChannel('ecocash')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentChannel('ecocash'); }}}
+          aria-pressed={paymentChannel === 'ecocash'}
         >
           <CardContent className='p-4'>
             <div className='flex items-center gap-3'>
@@ -363,11 +377,15 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
 
         {/* OneMoney */}
         <Card
-          className={`cursor-pointer transition-all ${paymentChannel === 'onemoney'
-            ? 'ring-2 ring-blue-500 border-blue-500'
-            : 'border-gray-200 hover:border-gray-300'
+          className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${paymentChannel === 'onemoney'
+            ? 'ring-2 ring-blue-600 border-blue-600'
+            : 'border-border hover:border-muted-foreground/30'
             }`}
           onClick={() => setPaymentChannel('onemoney')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentChannel('onemoney'); }}}
+          aria-pressed={paymentChannel === 'onemoney'}
         >
           <CardContent className='p-4'>
             <div className='flex items-center gap-3'>
@@ -384,11 +402,15 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
 
         {/* Web Checkout */}
         <Card
-          className={`cursor-pointer transition-all ${paymentChannel === 'web'
-            ? 'ring-2 ring-purple-500 border-purple-500'
-            : 'border-gray-200 hover:border-gray-300'
+          className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${paymentChannel === 'web'
+            ? 'ring-2 ring-purple-600 border-purple-600'
+            : 'border-border hover:border-muted-foreground/30'
             }`}
           onClick={() => setPaymentChannel('web')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentChannel('web'); }}}
+          aria-pressed={paymentChannel === 'web'}
         >
           <CardContent className='p-4'>
             <div className='flex items-center gap-3'>
@@ -491,14 +513,14 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
               </div>
             </div>
 
-            <div className='flex items-center gap-2 p-3 bg-green-50 rounded-lg'>
-              <Shield className='w-4 h-4 text-green-600' />
-              <span className='text-sm text-green-700'>
+            <div className='flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg'>
+              <Shield className='w-4 h-4 text-green-700 dark:text-green-400' />
+              <span className='text-sm text-green-700 dark:text-green-400'>
                 Secured by Paynow Zimbabwe
               </span>
             </div>
 
-            <div className='flex items-center gap-2 p-3 bg-blue-50 rounded-lg'>
+            <div className='flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg'>
               <Clock className='w-4 h-4 text-blue-600' />
               <span className='text-sm text-blue-700'>
                 {paymentChannel === 'web'
@@ -569,7 +591,21 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
         </div>
 
         {processingState.status === 'waiting' && (
-          <Card className='bg-blue-50 border-blue-200'>
+          <div className='w-full'>
+            <div className='w-full bg-muted rounded-full h-2'>
+              <div
+                className='bg-primary h-2 rounded-full transition-all duration-1000'
+                style={{ width: `${Math.min((elapsedSeconds / 120) * 100, 100)}%` }}
+              />
+            </div>
+            <p className='text-xs text-muted-foreground text-center mt-1'>
+              {Math.max(120 - elapsedSeconds, 0)}s remaining
+            </p>
+          </div>
+        )}
+
+        {processingState.status === 'waiting' && (
+          <Card className='bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'>
             <CardContent className='p-4'>
               <div className='flex items-start gap-3'>
                 <Clock className='w-5 h-5 text-blue-600 mt-0.5' />
@@ -612,7 +648,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
       {/* Header */}
       <div className='bg-white border-b px-4 py-4'>
         <div className='flex items-center gap-4'>
-          <Button variant='ghost' size='sm' onClick={step === 'processing' ? undefined : onBack} disabled={step === 'processing'}>
+          <Button variant='ghost' size='icon' onClick={step === 'processing' ? undefined : onBack} disabled={step === 'processing'} aria-label='Go back' className='min-w-11 min-h-11'>
             <ChevronLeft className='w-5 h-5' />
           </Button>
           <div className='flex items-center gap-2'>
@@ -624,11 +660,13 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
 
       {/* Content */}
       <div className='p-4'>
-        {step === 'source' && renderSourceSelection()}
-        {step === 'recipient' && renderRecipientForm()}
-        {step === 'payment-method' && renderPaymentMethodSelection()}
-        {step === 'confirm' && renderConfirmation()}
-        {step === 'processing' && renderProcessingScreen()}
+        <div key={step} className='animate-fade-in'>
+          {step === 'source' && renderSourceSelection()}
+          {step === 'recipient' && renderRecipientForm()}
+          {step === 'payment-method' && renderPaymentMethodSelection()}
+          {step === 'confirm' && renderConfirmation()}
+          {step === 'processing' && renderProcessingScreen()}
+        </div>
       </div>
     </div>
   );

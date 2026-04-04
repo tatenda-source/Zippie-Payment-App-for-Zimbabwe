@@ -72,14 +72,14 @@ export function PaymentSuccess({ data, onBack }: PaymentSuccessProps) {
   const renderSuccessIcon = () => {
     if (data.type === 'request') {
       return (
-        <div className='w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6'>
-          <ArrowDownLeft className='w-12 h-12 text-green-600' />
+        <div className='w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-success-pop'>
+          <ArrowDownLeft className='w-12 h-12 text-green-700 dark:text-green-400' />
         </div>
       );
     } else {
       return (
-        <div className='w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse'>
-          <Check className='w-12 h-12 text-green-600' />
+        <div className='w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-success-pop'>
+          <Check className='w-12 h-12 text-green-700 dark:text-green-400' />
         </div>
       );
     }
@@ -102,12 +102,12 @@ export function PaymentSuccess({ data, onBack }: PaymentSuccessProps) {
   const successMessage = renderSuccessMessage();
 
   return (
-    <div className='min-h-screen bg-gray-50'>
+    <div className='min-h-screen bg-background'>
       {/* Success Animation */}
-      <div className='bg-white px-4 py-8 text-center'>
+      <div className='bg-card px-4 py-8 text-center'>
         {renderSuccessIcon()}
-        <h1 className='text-2xl font-bold text-gray-900 mb-2'>{successMessage.title}</h1>
-        <p className='text-gray-600'>{successMessage.subtitle}</p>
+        <h1 className='text-2xl font-bold text-foreground mb-2'>{successMessage.title}</h1>
+        <p className='text-muted-foreground'>{successMessage.subtitle}</p>
       </div>
 
       {/* Transaction Details */}
@@ -172,9 +172,9 @@ export function PaymentSuccess({ data, onBack }: PaymentSuccessProps) {
               )}
             </div>
 
-            <div className='flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200'>
-              <Check className='w-4 h-4 text-green-600' />
-              <span className='text-sm text-green-700'>
+            <div className='flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800'>
+              <Check className='w-4 h-4 text-green-700 dark:text-green-400' />
+              <span className='text-sm text-green-700 dark:text-green-400'>
                 {data.type === 'request'
                   ? 'Request created and ready to share'
                   : 'Payment processed successfully'}
@@ -197,7 +197,7 @@ export function PaymentSuccess({ data, onBack }: PaymentSuccessProps) {
                 <div className='flex-1 p-3 bg-gray-50 rounded border text-sm text-gray-600 break-all'>
                   {data.link}
                 </div>
-                <Button variant='outline' size='sm' onClick={copyToClipboard} className='shrink-0'>
+                <Button variant='outline' size='sm' onClick={copyToClipboard} className='shrink-0 min-w-11 min-h-11' aria-label={copied ? 'Link copied' : 'Copy payment link'}>
                   {copied ? <Check className='w-4 h-4' /> : <Copy className='w-4 h-4' />}
                 </Button>
               </div>
@@ -252,13 +252,13 @@ export function PaymentSuccess({ data, onBack }: PaymentSuccessProps) {
         </div>
 
         {/* Additional Info */}
-        <Card className='border-0 bg-blue-50 border-blue-200'>
+        <Card className='border-0 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'>
           <CardContent className='p-4'>
             <div className='text-center space-y-2'>
-              <p className='text-sm font-medium text-blue-800'>
+              <p className='text-sm font-medium text-blue-800 dark:text-blue-300'>
                 {data.type === 'request' ? 'What happens next?' : 'Need help?'}
               </p>
-              <p className='text-sm text-blue-700'>
+              <p className='text-sm text-blue-700 dark:text-blue-400'>
                 {data.type === 'request'
                   ? 'Recipients will receive your request and can pay instantly using the link or QR code.'
                   : 'If you have any questions about this transaction, contact our support team.'}
@@ -267,6 +267,13 @@ export function PaymentSuccess({ data, onBack }: PaymentSuccessProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Toast notification */}
+      {copied && (
+        <div className='fixed bottom-6 left-1/2 -translate-x-1/2 bg-foreground text-background px-4 py-2 rounded-lg text-sm shadow-lg animate-toast z-50'>
+          Link copied to clipboard
+        </div>
+      )}
     </div>
   );
 }
