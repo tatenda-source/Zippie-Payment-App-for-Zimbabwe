@@ -73,10 +73,34 @@ class TransactionResponse(TransactionBase):
     sender: Optional[str]
     status: str
     fee: float
+    transaction_metadata: Optional[dict] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+# Paynow Schemas
+class PaynowInitiateRequest(BaseModel):
+    transaction_id: int
+    payment_channel: str  # "ecocash", "onemoney", or "web"
+    phone_number: Optional[str] = None  # Required for ecocash/onemoney
+
+
+class PaynowInitiateResponse(BaseModel):
+    transaction_id: int
+    status: str
+    poll_url: Optional[str] = None
+    redirect_url: Optional[str] = None
+    instructions: Optional[str] = None
+    paynow_reference: Optional[str] = None
+
+
+class TransactionStatusResponse(BaseModel):
+    transaction_id: int
+    status: str
+    paid: bool
+    paynow_reference: Optional[str] = None
 
 
 # Auth Schemas

@@ -2,10 +2,12 @@
 P2P Payment API endpoints
 """
 
+import asyncio
 import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
@@ -14,9 +16,13 @@ from app.db.database import get_db
 from app.db.schemas import (
     AccountCreate,
     AccountResponse,
+    PaynowInitiateRequest,
+    PaynowInitiateResponse,
     TransactionCreate,
     TransactionResponse,
+    TransactionStatusResponse,
 )
+from app.services.paynow_service import paynow_service
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +156,8 @@ async def create_transaction(
                     status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
                 )
 
-        # For "sent" transactions, validate and deduct from sender's account
+        # For "sent" transactions, validate balance but do NOT deduct yet.
+        # Balance deduction happens after Paynow confirms payment.
         if transaction_data.transaction_type == "sent":
             if not account:
                 raise HTTPException(
@@ -164,9 +171,8 @@ async def create_transaction(
                     detail="Insufficient balance",
                 )
 
-            # Deduct from sender's account
-            account.balance -= transaction_data.amount
-            transaction_status = "completed"
+            # Pending until Paynow confirms
+            transaction_status = "pending"
         else:
             # For "received" and "request" transactions, mark as pending
             transaction_status = "pending"
@@ -232,3 +238,250 @@ async def get_balance(
         "ZWL": balance_zwl,
         "accounts": [AccountResponse.model_validate(acc) for acc in accounts],
     }
+
+
+# --- Paynow Payment Gateway Endpoints ---
+
+
+def _complete_transaction(db: Session, transaction: models.Transaction):
+    """Mark transaction as completed and deduct balance atomically.
+
+    Uses an atomic UPDATE WHERE status='pending' to prevent double-deduction
+    from webhook + poll race conditions.
+    """
+    result = db.execute(
+        update(models.Transaction)
+        .where(
+            models.Transaction.id == transaction.id,
+            models.Transaction.status == "pending",
+        )
+        .values(status="completed")
+    )
+
+    if result.rowcount == 0:
+        # Already processed by another path (webhook vs poll race)
+        return False
+
+    # Deduct balance from sender's account
+    if transaction.account_id:
+        account = db.query(models.Account).get(transaction.account_id)
+        if account:
+            account.balance -= transaction.amount
+
+    db.commit()
+    logger.info(f"Transaction {transaction.id} completed via Paynow")
+    return True
+
+
+def _fail_transaction(db: Session, transaction: models.Transaction):
+    """Mark transaction as failed."""
+    result = db.execute(
+        update(models.Transaction)
+        .where(
+            models.Transaction.id == transaction.id,
+            models.Transaction.status == "pending",
+        )
+        .values(status="failed")
+    )
+    db.commit()
+    return result.rowcount > 0
+
+
+@router.post("/paynow/initiate", response_model=PaynowInitiateResponse)
+async def initiate_paynow_payment(
+    request: PaynowInitiateRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Initiate a Paynow payment for a pending transaction."""
+    if not paynow_service.is_configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment gateway is not configured",
+        )
+
+    # Look up transaction
+    transaction = (
+        db.query(models.Transaction)
+        .filter(
+            models.Transaction.id == request.transaction_id,
+            models.Transaction.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
+        )
+
+    if transaction.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Transaction is already {transaction.status}",
+        )
+
+    # Validate payment channel
+    valid_channels = ["ecocash", "onemoney", "web"]
+    if request.payment_channel not in valid_channels:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid payment channel. Must be one of: {valid_channels}",
+        )
+
+    if request.payment_channel != "web" and not request.phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number is required for mobile payments",
+        )
+
+    reference = f"ZIPPIE-{transaction.id}"
+
+    try:
+        if request.payment_channel == "web":
+            result = await asyncio.to_thread(
+                paynow_service.initiate_web_checkout,
+                reference,
+                current_user.email,
+                transaction.description or "Zippie Payment",
+                transaction.amount,
+            )
+        else:
+            result = await asyncio.to_thread(
+                paynow_service.initiate_mobile_checkout,
+                reference,
+                current_user.email,
+                transaction.description or "Zippie Payment",
+                transaction.amount,
+                request.phone_number,
+                request.payment_channel,
+            )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        )
+
+    # Store Paynow metadata on the transaction
+    transaction.transaction_metadata = {
+        "paynow_reference": reference,
+        "poll_url": result.get("poll_url"),
+        "redirect_url": result.get("redirect_url"),
+        "instructions": result.get("instructions"),
+        "payment_channel": request.payment_channel,
+        "phone_number": request.phone_number,
+    }
+    transaction.payment_method = request.payment_channel
+    db.commit()
+
+    return PaynowInitiateResponse(
+        transaction_id=transaction.id,
+        status="pending",
+        poll_url=result.get("poll_url"),
+        redirect_url=result.get("redirect_url"),
+        instructions=result.get("instructions"),
+        paynow_reference=reference,
+    )
+
+
+@router.post("/paynow/webhook")
+async def paynow_webhook(request: Request, db: Session = Depends(get_db)):
+    """Handle Paynow payment result webhook (unauthenticated).
+
+    Paynow POSTs form data with transaction results to this endpoint.
+    """
+    form_data = await request.form()
+    data = dict(form_data)
+
+    # Validate hash
+    if not paynow_service.validate_webhook(data):
+        logger.warning("Paynow webhook received with invalid hash")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid hash"
+        )
+
+    reference = data.get("reference", "")
+    paynow_status = data.get("status", "").lower()
+
+    logger.info(
+        f"Paynow webhook received: reference={reference}, status={paynow_status}"
+    )
+
+    # Extract transaction ID from reference (format: ZIPPIE-{id})
+    try:
+        tx_id = int(reference.replace("ZIPPIE-", ""))
+    except (ValueError, AttributeError):
+        logger.error(f"Invalid Paynow reference format: {reference}")
+        return {"status": "ok"}
+
+    transaction = db.query(models.Transaction).get(tx_id)
+    if not transaction:
+        logger.error(f"Transaction not found for Paynow reference: {reference}")
+        return {"status": "ok"}
+
+    if paynow_status == "paid":
+        _complete_transaction(db, transaction)
+    elif paynow_status in ("cancelled", "failed", "disputed"):
+        _fail_transaction(db, transaction)
+
+    return {"status": "ok"}
+
+
+@router.get(
+    "/paynow/status/{transaction_id}",
+    response_model=TransactionStatusResponse,
+)
+async def check_paynow_status(
+    transaction_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Check Paynow payment status for a transaction (frontend polling)."""
+    transaction = (
+        db.query(models.Transaction)
+        .filter(
+            models.Transaction.id == transaction_id,
+            models.Transaction.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
+        )
+
+    metadata = transaction.transaction_metadata or {}
+    paynow_reference = metadata.get("paynow_reference")
+
+    # If transaction is already resolved, return current status
+    if transaction.status in ("completed", "failed"):
+        return TransactionStatusResponse(
+            transaction_id=transaction.id,
+            status=transaction.status,
+            paid=transaction.status == "completed",
+            paynow_reference=paynow_reference,
+        )
+
+    # Poll Paynow for status update
+    poll_url = metadata.get("poll_url")
+    if poll_url and paynow_service.is_configured:
+        try:
+            result = await asyncio.to_thread(
+                paynow_service.check_status, poll_url
+            )
+
+            if result["paid"]:
+                _complete_transaction(db, transaction)
+                db.refresh(transaction)
+            elif result["status"] == "failed":
+                _fail_transaction(db, transaction)
+                db.refresh(transaction)
+        except Exception as e:
+            logger.error(f"Error polling Paynow status: {e}")
+
+    return TransactionStatusResponse(
+        transaction_id=transaction.id,
+        status=transaction.status,
+        paid=transaction.status == "completed",
+        paynow_reference=paynow_reference,
+    )
