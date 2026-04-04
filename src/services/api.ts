@@ -114,7 +114,7 @@ const mapAccount = (acc: BackendAccount): Account => ({
   balance: acc.balance,
   currency: acc.currency as Currency,
   color: acc.color,
-  type: acc.account_type as AccountType
+  type: acc.account_type as AccountType,
 });
 
 const mapTransaction = (tx: BackendTransaction): Transaction => ({
@@ -127,7 +127,7 @@ const mapTransaction = (tx: BackendTransaction): Transaction => ({
   description: tx.description || '',
   status: tx.status as TransactionStatus,
   date: tx.created_at,
-  paymentMethod: tx.payment_method || 'Zippie Balance'
+  paymentMethod: tx.payment_method || 'Zippie Balance',
 });
 
 // Auth API
@@ -138,13 +138,10 @@ export const authAPI = {
     full_name: string;
     password: string;
   }) => {
-    return apiRequest<{ access_token: string; token_type: string }>(
-      '/auth/register',
-      {
-        method: 'POST',
-        body: JSON.stringify(userData),
-      }
-    );
+    return apiRequest<{ access_token: string; token_type: string }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
   },
 
   login: async (email: string, password: string) => {
@@ -175,34 +172,6 @@ export const authAPI = {
   },
 };
 
-// Stocks API - Keeping as is for now, but should likely be refactored later
-export const stocksAPI = {
-  getQuote: async (symbol: string) => {
-    return apiRequest(`/stocks/quote/${symbol}`);
-  },
-
-  getMultipleQuotes: async (symbols: string[]) => {
-    const symbolsStr = symbols.join(',');
-    return apiRequest(`/stocks/quote?symbols=${symbolsStr}`);
-  },
-
-  getHistoricalData: async (symbol: string, period: string = '1mo') => {
-    return apiRequest(`/stocks/historical/${symbol}?period=${period}`);
-  },
-
-  getPrediction: async (symbol: string, timeframe: string = '1d') => {
-    return apiRequest(`/stocks/predict/${symbol}?timeframe=${timeframe}`);
-  },
-
-  searchStocks: async (query: string) => {
-    return apiRequest(`/stocks/search?q=${encodeURIComponent(query)}`);
-  },
-
-  getPopularStocks: async () => {
-    return apiRequest('/stocks/popular');
-  },
-};
-
 // Payments API
 export const paymentsAPI = {
   getAccounts: async (): Promise<Account[]> => {
@@ -224,7 +193,9 @@ export const paymentsAPI = {
   },
 
   getTransactions: async (limit: number = 50): Promise<Transaction[]> => {
-    const transactions = await apiRequest<BackendTransaction[]>(`/payments/transactions?limit=${limit}`);
+    const transactions = await apiRequest<BackendTransaction[]>(
+      `/payments/transactions?limit=${limit}`
+    );
     return transactions.map(mapTransaction);
   },
 
@@ -251,42 +222,42 @@ export const paymentsAPI = {
   },
 
   getBalance: async () => {
-    const balanceData = await apiRequest<{ USD: number, ZWL: number, accounts: BackendAccount[] }>('/payments/balance');
+    const balanceData = await apiRequest<{ USD: number; ZWL: number; accounts: BackendAccount[] }>(
+      '/payments/balance'
+    );
     return {
       USD: balanceData.USD,
       ZWL: balanceData.ZWL,
-      accounts: balanceData.accounts.map(mapAccount)
+      accounts: balanceData.accounts.map(mapAccount),
     };
   },
-};
 
-// Watchlists API
-export const watchlistsAPI = {
-  getWatchlist: async () => {
-    return apiRequest('/watchlists');
-  },
-
-  addToWatchlist: async (watchlistData: {
-    symbol: string;
-    exchange?: string;
-    target_price?: number;
-    notes?: string;
-  }) => {
-    return apiRequest('/watchlists', {
+  initiatePaynowPayment: async (data: {
+    transaction_id: number;
+    payment_channel: 'ecocash' | 'onemoney' | 'web';
+    phone_number?: string;
+  }): Promise<{
+    transaction_id: number;
+    status: string;
+    poll_url?: string;
+    redirect_url?: string;
+    instructions?: string;
+    paynow_reference?: string;
+  }> => {
+    return apiRequest('/payments/paynow/initiate', {
       method: 'POST',
-      body: JSON.stringify(watchlistData),
+      body: JSON.stringify(data),
     });
   },
 
-  removeFromWatchlist: async (watchlistId: number) => {
-    return apiRequest(`/watchlists/${watchlistId}`, {
-      method: 'DELETE',
-    });
-  },
-
-  removeFromWatchlistBySymbol: async (symbol: string) => {
-    return apiRequest(`/watchlists/symbol/${symbol}`, {
-      method: 'DELETE',
-    });
+  pollTransactionStatus: async (
+    transactionId: number
+  ): Promise<{
+    transaction_id: number;
+    status: string;
+    paid: boolean;
+    paynow_reference?: string;
+  }> => {
+    return apiRequest(`/payments/paynow/status/${transactionId}`);
   },
 };

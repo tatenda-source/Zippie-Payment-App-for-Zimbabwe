@@ -2,14 +2,7 @@ import { useState, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import {
-  ChevronLeft,
-  History,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Clock,
-  Download,
-} from 'lucide-react';
+import { ChevronLeft, History, ArrowUpRight, ArrowDownLeft, Clock, Download } from 'lucide-react';
 import { TransactionFilter } from './TransactionFilter';
 import { formatCurrency } from '../utils/currency';
 import { getStatusIcon, getStatusColorClass } from '../utils/status';
@@ -113,20 +106,32 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
         return;
       }
 
-      const headers = ['Date', 'Type', 'Amount', 'Currency', 'Status', 'Recipient', 'Sender', 'Description', 'Payment Method'];
+      const headers = [
+        'Date',
+        'Type',
+        'Amount',
+        'Currency',
+        'Status',
+        'Recipient',
+        'Sender',
+        'Description',
+        'Payment Method',
+      ];
       const csvContent = [
         headers.join(','),
-        ...filteredTransactions.map(t => [
-          new Date(t.date).toISOString(),
-          t.type,
-          t.amount,
-          t.currency,
-          t.status,
-          `"${t.recipient.replace(/"/g, '""')}"`,
-          `"${(t.sender || '').replace(/"/g, '""')}"`,
-          `"${t.description.replace(/"/g, '""')}"`,
-          `"${(t.paymentMethod || '').replace(/"/g, '""')}"`
-        ].join(','))
+        ...filteredTransactions.map(t =>
+          [
+            new Date(t.date).toISOString(),
+            t.type,
+            t.amount,
+            t.currency,
+            t.status,
+            `"${t.recipient.replace(/"/g, '""')}"`,
+            `"${(t.sender || '').replace(/"/g, '""')}"`,
+            `"${t.description.replace(/"/g, '""')}"`,
+            `"${(t.paymentMethod || '').replace(/"/g, '""')}"`,
+          ].join(',')
+        ),
       ].join('\n');
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -146,12 +151,18 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
   };
 
   return (
-    <div className='min-h-screen bg-gray-50'>
+    <div className='min-h-screen bg-background'>
       {/* Header */}
-      <div className='bg-white border-b px-4 py-4'>
+      <div className='bg-card border-b px-4 py-4'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-4'>
-            <Button variant='ghost' size='sm' onClick={onBack}>
+            <Button
+              variant='ghost'
+              size='icon'
+              onClick={onBack}
+              aria-label='Go back'
+              className='min-w-11 min-h-11'
+            >
               <ChevronLeft className='w-5 h-5' />
             </Button>
             <div className='flex items-center gap-2'>
@@ -159,32 +170,38 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
               <span className='font-semibold'>Transaction History</span>
             </div>
           </div>
-          <Button variant='ghost' size='sm' onClick={handleExport}>
+          <Button
+            variant='ghost'
+            size='icon'
+            onClick={handleExport}
+            aria-label='Export transactions'
+            className='min-w-11 min-h-11'
+          >
             <Download className='w-4 h-4' />
           </Button>
         </div>
       </div>
 
       {/* Summary Stats */}
-      <div className='p-4 bg-white border-b'>
+      <div className='p-4 bg-card border-b'>
         <div className='grid grid-cols-3 gap-4'>
           <div className='text-center'>
-            <div className='text-lg font-semibold text-green-600'>
+            <div className='text-lg font-semibold text-green-700 dark:text-green-400'>
               {totalsByStatus['completed'] || 0}
             </div>
-            <div className='text-xs text-gray-500'>Completed</div>
+            <div className='text-xs text-muted-foreground'>Completed</div>
           </div>
           <div className='text-center'>
-            <div className='text-lg font-semibold text-yellow-600'>
+            <div className='text-lg font-semibold text-yellow-700 dark:text-yellow-400'>
               {totalsByStatus['pending'] || 0}
             </div>
-            <div className='text-xs text-gray-500'>Pending</div>
+            <div className='text-xs text-muted-foreground'>Pending</div>
           </div>
           <div className='text-center'>
-            <div className='text-lg font-semibold text-red-600'>
+            <div className='text-lg font-semibold text-red-700 dark:text-red-400'>
               {totalsByStatus['failed'] || 0}
             </div>
-            <div className='text-xs text-gray-500'>Failed</div>
+            <div className='text-xs text-muted-foreground'>Failed</div>
           </div>
         </div>
       </div>
@@ -217,31 +234,35 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
           sortedDates.map(dateString => (
             <div key={dateString} className='space-y-3'>
               <div className='flex items-center gap-3'>
-                <div className='text-sm font-medium text-gray-600'>
+                <div className='text-sm font-medium text-muted-foreground'>
                   {formatTransactionDate(dateString)}
                 </div>
-                <div className='flex-1 h-px bg-gray-200' />
+                <div className='flex-1 h-px bg-border' />
               </div>
 
               <div className='space-y-3'>
                 {groupedTransactions[dateString]?.map(transaction => {
-                  const StatusIcon = getStatusIcon(transaction.status as 'completed' | 'pending' | 'failed');
-                  const statusColorClass = getStatusColorClass(transaction.status as 'completed' | 'pending' | 'failed');
+                  const StatusIcon = getStatusIcon(
+                    transaction.status as 'completed' | 'pending' | 'failed'
+                  );
+                  const statusColorClass = getStatusColorClass(
+                    transaction.status as 'completed' | 'pending' | 'failed'
+                  );
 
                   return (
                     <Card key={transaction.id} className='border-0 shadow-sm'>
                       <CardContent className='p-4'>
                         <div className='flex items-center justify-between'>
                           <div className='flex items-center gap-3'>
-                            <div className='w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center'>
+                            <div className='w-10 h-10 bg-muted rounded-full flex items-center justify-center'>
                               {transaction.type === 'sent' && (
-                                <ArrowUpRight className='w-5 h-5 text-red-500' />
+                                <ArrowUpRight className='w-5 h-5 text-red-700 dark:text-red-400' />
                               )}
                               {transaction.type === 'received' && (
-                                <ArrowDownLeft className='w-5 h-5 text-green-500' />
+                                <ArrowDownLeft className='w-5 h-5 text-green-700 dark:text-green-400' />
                               )}
                               {transaction.type === 'request' && (
-                                <Clock className='w-5 h-5 text-yellow-500' />
+                                <Clock className='w-5 h-5 text-yellow-700 dark:text-yellow-400' />
                               )}
                             </div>
                             <div className='flex-1'>
@@ -254,7 +275,8 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
                                       : `Request to ${transaction.recipient}`}
                                 </p>
                                 <Badge className={`${statusColorClass} border-0`}>
-                                  {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                                  {transaction.status.charAt(0).toUpperCase() +
+                                    transaction.status.slice(1)}
                                 </Badge>
                               </div>
                               <p className='text-sm text-gray-500'>{transaction.description}</p>

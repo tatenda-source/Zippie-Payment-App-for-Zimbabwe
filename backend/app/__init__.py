@@ -1,4 +1,3 @@
-# Hippie Fintech Platform
-# Integrated P2P Payments + Stock Market Insights
+# Zippie Payment Platform
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
