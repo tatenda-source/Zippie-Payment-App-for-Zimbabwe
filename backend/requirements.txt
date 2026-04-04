@@ -14,6 +14,9 @@ alembic==1.12.1
 # HTTP Client
 httpx==0.25.2
 
+# Payment Gateway
+paynow==2.1.2
+
 # Utilities
 pydantic==2.5.0
 pydantic-settings==2.1.0

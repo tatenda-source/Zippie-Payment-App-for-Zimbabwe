@@ -41,6 +41,16 @@ class Settings(BaseSettings):
             return False
         return len(self.SECRET_KEY) >= 32
 
+    # Paynow Zimbabwe
+    PAYNOW_INTEGRATION_ID: str = os.getenv("PAYNOW_INTEGRATION_ID", "")
+    PAYNOW_INTEGRATION_KEY: str = os.getenv("PAYNOW_INTEGRATION_KEY", "")
+    PAYNOW_RETURN_URL: str = os.getenv(
+        "PAYNOW_RETURN_URL", "http://localhost:3000/payment/return"
+    )
+    PAYNOW_RESULT_URL: str = os.getenv(
+        "PAYNOW_RESULT_URL", "http://localhost:8000/api/v1/payments/paynow/webhook"
+    )
+
     # CORS
     _cors_origins = os.getenv("CORS_ORIGINS", "")
     CORS_ORIGINS: List[str] = (
