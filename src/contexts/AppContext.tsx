@@ -111,13 +111,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const handlePaymentSuccess = useCallback(
         async (data: PaymentData) => {
-            // Update accounts if money was sent
+            // For Paynow payments, balance was already deducted server-side.
+            // Optimistic local update for immediate UI feedback.
             if (data.type === 'send' && data.account) {
                 updateAccountBalance(data.account, data.amount + (data.fee || 0));
             }
 
-            // Add transaction
-            await addTransaction(data);
+            // For request type, persist the transaction
+            if (data.type === 'request') {
+                await addTransaction(data);
+            }
+            // For send type, transaction was already created during Paynow flow
 
             // Navigate to success screen
             navigation.navigate('payment-success', {
