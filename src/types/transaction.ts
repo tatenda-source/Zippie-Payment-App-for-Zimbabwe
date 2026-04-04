@@ -5,7 +5,8 @@
 import type { Currency } from './account';
 
 export type TransactionType = 'sent' | 'received' | 'request';
-export type TransactionStatus = 'completed' | 'pending' | 'failed';
+export type TransactionStatus = 'completed' | 'pending' | 'failed' | 'processing';
+export type PaymentChannel = 'ecocash' | 'onemoney' | 'web';
 
 export interface Transaction {
     id: string;
@@ -40,5 +41,7 @@ export interface PaymentData {
     account?: string;
     fee?: number;
     paymentMethod?: string;
+    paymentChannel?: PaymentChannel;
+    phoneNumber?: string;
     link?: string;
 }

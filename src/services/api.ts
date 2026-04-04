@@ -230,5 +230,32 @@ export const paymentsAPI = {
       accounts: balanceData.accounts.map(mapAccount)
     };
   },
+
+  initiatePaynowPayment: async (data: {
+    transaction_id: number;
+    payment_channel: 'ecocash' | 'onemoney' | 'web';
+    phone_number?: string;
+  }): Promise<{
+    transaction_id: number;
+    status: string;
+    poll_url?: string;
+    redirect_url?: string;
+    instructions?: string;
+    paynow_reference?: string;
+  }> => {
+    return apiRequest('/payments/paynow/initiate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  pollTransactionStatus: async (transactionId: number): Promise<{
+    transaction_id: number;
+    status: string;
+    paid: boolean;
+    paynow_reference?: string;
+  }> => {
+    return apiRequest(`/payments/paynow/status/${transactionId}`);
+  },
 };
 
