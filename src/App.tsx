@@ -30,11 +30,7 @@ function AppContent() {
     switch (currentScreen) {
       case 'home':
         return (
-          <HomeDashboard
-            accounts={accounts}
-            transactions={transactions}
-            onNavigate={navigate}
-          />
+          <HomeDashboard accounts={accounts} transactions={transactions} onNavigate={navigate} />
         );
       case 'send':
         return <SendMoney accounts={accounts} onBack={goBack} onSuccess={handlePaymentSuccess} />;
@@ -46,22 +42,10 @@ function AppContent() {
         return <PaymentSuccess data={screenData.paymentData || {}} onBack={goBack} />;
       default:
         return (
-          <HomeDashboard
-            accounts={accounts}
-            transactions={transactions}
-            onNavigate={navigate}
-          />
+          <HomeDashboard accounts={accounts} transactions={transactions} onNavigate={navigate} />
         );
     }
-  }, [
-    currentScreen,
-    screenData,
-    accounts,
-    transactions,
-    navigate,
-    goBack,
-    handlePaymentSuccess,
-  ]);
+  }, [currentScreen, screenData, accounts, transactions, navigate, goBack, handlePaymentSuccess]);
 
   return (
     <div className='min-h-screen bg-background max-w-md mx-auto'>

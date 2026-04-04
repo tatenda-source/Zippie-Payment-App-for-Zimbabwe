@@ -1,12 +1,7 @@
 /**
  * Tests for API service
  */
-import {
-  authAPI,
-  paymentsAPI,
-  setAuthToken,
-  getAuthToken,
-} from '../../services/api';
+import { authAPI, paymentsAPI, setAuthToken, getAuthToken } from '../../services/api';
 
 // Mock fetch
 global.fetch = jest.fn();

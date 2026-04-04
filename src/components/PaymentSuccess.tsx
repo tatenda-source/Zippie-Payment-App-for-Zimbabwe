@@ -197,7 +197,13 @@ export function PaymentSuccess({ data, onBack }: PaymentSuccessProps) {
                 <div className='flex-1 p-3 bg-gray-50 rounded border text-sm text-gray-600 break-all'>
                   {data.link}
                 </div>
-                <Button variant='outline' size='sm' onClick={copyToClipboard} className='shrink-0 min-w-11 min-h-11' aria-label={copied ? 'Link copied' : 'Copy payment link'}>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={copyToClipboard}
+                  className='shrink-0 min-w-11 min-h-11'
+                  aria-label={copied ? 'Link copied' : 'Copy payment link'}
+                >
                   {copied ? <Check className='w-4 h-4' /> : <Copy className='w-4 h-4' />}
                 </Button>
               </div>

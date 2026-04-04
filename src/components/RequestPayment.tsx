@@ -124,7 +124,9 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
                 className='text-lg pr-16'
               />
               <div className='absolute right-3 top-1/2 transform -translate-y-1/2'>
-                <label htmlFor='currency-select' className='sr-only'>Currency</label>
+                <label htmlFor='currency-select' className='sr-only'>
+                  Currency
+                </label>
                 <select
                   id='currency-select'
                   value={currency}
@@ -300,12 +302,20 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
             <div className='flex-1 p-3 bg-gray-50 rounded border text-sm text-gray-600 break-all'>
               {paymentLink}
             </div>
-            <Button variant='outline' size='sm' onClick={copyToClipboard} className='shrink-0 min-w-11 min-h-11' aria-label={copied ? 'Link copied' : 'Copy payment link'}>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={copyToClipboard}
+              className='shrink-0 min-w-11 min-h-11'
+              aria-label={copied ? 'Link copied' : 'Copy payment link'}
+            >
               {copied ? <Check className='w-4 h-4' /> : <Copy className='w-4 h-4' />}
             </Button>
           </div>
           {copied && (
-            <p className='text-sm text-green-700 dark:text-green-400 animate-fade-in mt-1'>Copied to clipboard!</p>
+            <p className='text-sm text-green-700 dark:text-green-400 animate-fade-in mt-1'>
+              Copied to clipboard!
+            </p>
           )}
         </CardContent>
       </Card>
@@ -343,7 +353,12 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
       </div>
 
       <div className='flex gap-3'>
-        <Button variant='outline' onClick={() => setStep('recipients')} className='flex-1' disabled={isProcessing}>
+        <Button
+          variant='outline'
+          onClick={() => setStep('recipients')}
+          className='flex-1'
+          disabled={isProcessing}
+        >
           Back
         </Button>
         <Button onClick={handleCreateRequest} className='flex-1' disabled={isProcessing}>
@@ -358,7 +373,13 @@ export function RequestPayment({ onBack, onSuccess }: RequestPaymentProps) {
       {/* Header */}
       <div className='bg-white border-b px-4 py-4'>
         <div className='flex items-center gap-4'>
-          <Button variant='ghost' size='icon' onClick={onBack} aria-label='Go back' className='min-w-11 min-h-11'>
+          <Button
+            variant='ghost'
+            size='icon'
+            onClick={onBack}
+            aria-label='Go back'
+            className='min-w-11 min-h-11'
+          >
             <ChevronLeft className='w-5 h-5' />
           </Button>
           <div className='flex items-center gap-2'>

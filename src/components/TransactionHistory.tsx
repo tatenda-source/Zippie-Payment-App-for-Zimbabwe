@@ -2,14 +2,7 @@ import { useState, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import {
-  ChevronLeft,
-  History,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Clock,
-  Download,
-} from 'lucide-react';
+import { ChevronLeft, History, ArrowUpRight, ArrowDownLeft, Clock, Download } from 'lucide-react';
 import { TransactionFilter } from './TransactionFilter';
 import { formatCurrency } from '../utils/currency';
 import { getStatusIcon, getStatusColorClass } from '../utils/status';
@@ -113,20 +106,32 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
         return;
       }
 
-      const headers = ['Date', 'Type', 'Amount', 'Currency', 'Status', 'Recipient', 'Sender', 'Description', 'Payment Method'];
+      const headers = [
+        'Date',
+        'Type',
+        'Amount',
+        'Currency',
+        'Status',
+        'Recipient',
+        'Sender',
+        'Description',
+        'Payment Method',
+      ];
       const csvContent = [
         headers.join(','),
-        ...filteredTransactions.map(t => [
-          new Date(t.date).toISOString(),
-          t.type,
-          t.amount,
-          t.currency,
-          t.status,
-          `"${t.recipient.replace(/"/g, '""')}"`,
-          `"${(t.sender || '').replace(/"/g, '""')}"`,
-          `"${t.description.replace(/"/g, '""')}"`,
-          `"${(t.paymentMethod || '').replace(/"/g, '""')}"`
-        ].join(','))
+        ...filteredTransactions.map(t =>
+          [
+            new Date(t.date).toISOString(),
+            t.type,
+            t.amount,
+            t.currency,
+            t.status,
+            `"${t.recipient.replace(/"/g, '""')}"`,
+            `"${(t.sender || '').replace(/"/g, '""')}"`,
+            `"${t.description.replace(/"/g, '""')}"`,
+            `"${(t.paymentMethod || '').replace(/"/g, '""')}"`,
+          ].join(',')
+        ),
       ].join('\n');
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -151,7 +156,13 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
       <div className='bg-card border-b px-4 py-4'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-4'>
-            <Button variant='ghost' size='icon' onClick={onBack} aria-label='Go back' className='min-w-11 min-h-11'>
+            <Button
+              variant='ghost'
+              size='icon'
+              onClick={onBack}
+              aria-label='Go back'
+              className='min-w-11 min-h-11'
+            >
               <ChevronLeft className='w-5 h-5' />
             </Button>
             <div className='flex items-center gap-2'>
@@ -159,7 +170,13 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
               <span className='font-semibold'>Transaction History</span>
             </div>
           </div>
-          <Button variant='ghost' size='icon' onClick={handleExport} aria-label='Export transactions' className='min-w-11 min-h-11'>
+          <Button
+            variant='ghost'
+            size='icon'
+            onClick={handleExport}
+            aria-label='Export transactions'
+            className='min-w-11 min-h-11'
+          >
             <Download className='w-4 h-4' />
           </Button>
         </div>
@@ -225,8 +242,12 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
 
               <div className='space-y-3'>
                 {groupedTransactions[dateString]?.map(transaction => {
-                  const StatusIcon = getStatusIcon(transaction.status as 'completed' | 'pending' | 'failed');
-                  const statusColorClass = getStatusColorClass(transaction.status as 'completed' | 'pending' | 'failed');
+                  const StatusIcon = getStatusIcon(
+                    transaction.status as 'completed' | 'pending' | 'failed'
+                  );
+                  const statusColorClass = getStatusColorClass(
+                    transaction.status as 'completed' | 'pending' | 'failed'
+                  );
 
                   return (
                     <Card key={transaction.id} className='border-0 shadow-sm'>
@@ -254,7 +275,8 @@ export function TransactionHistory({ transactions, onBack }: TransactionHistoryP
                                       : `Request to ${transaction.recipient}`}
                                 </p>
                                 <Badge className={`${statusColorClass} border-0`}>
-                                  {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                                  {transaction.status.charAt(0).toUpperCase() +
+                                    transaction.status.slice(1)}
                                 </Badge>
                               </div>
                               <p className='text-sm text-gray-500'>{transaction.description}</p>

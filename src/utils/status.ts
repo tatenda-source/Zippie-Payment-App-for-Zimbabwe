@@ -13,16 +13,16 @@ export type TransactionStatus = 'completed' | 'pending' | 'failed';
  * @returns Lucide icon component
  */
 export function getStatusIcon(status: TransactionStatus): LucideIcon {
-    switch (status) {
-        case 'completed':
-            return Check;
-        case 'pending':
-            return Clock;
-        case 'failed':
-            return X;
-        default:
-            return Clock;
-    }
+  switch (status) {
+    case 'completed':
+      return Check;
+    case 'pending':
+      return Clock;
+    case 'failed':
+      return X;
+    default:
+      return Clock;
+  }
 }
 
 /**
@@ -31,16 +31,16 @@ export function getStatusIcon(status: TransactionStatus): LucideIcon {
  * @returns Tailwind color classes for badge
  */
 export function getStatusColorClass(status: TransactionStatus): string {
-    switch (status) {
-        case 'completed':
-            return 'bg-green-100 text-green-700';
-        case 'pending':
-            return 'bg-yellow-100 text-yellow-700';
-        case 'failed':
-            return 'bg-red-100 text-red-700';
-        default:
-            return 'bg-gray-100 text-gray-700';
-    }
+  switch (status) {
+    case 'completed':
+      return 'bg-green-100 text-green-700';
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-700';
+    case 'failed':
+      return 'bg-red-100 text-red-700';
+    default:
+      return 'bg-gray-100 text-gray-700';
+  }
 }
 
 /**
@@ -49,16 +49,16 @@ export function getStatusColorClass(status: TransactionStatus): string {
  * @returns Tailwind text color class
  */
 export function getStatusIconColor(status: TransactionStatus): string {
-    switch (status) {
-        case 'completed':
-            return 'text-green-600';
-        case 'pending':
-            return 'text-yellow-600';
-        case 'failed':
-            return 'text-red-600';
-        default:
-            return 'text-gray-600';
-    }
+  switch (status) {
+    case 'completed':
+      return 'text-green-600';
+    case 'pending':
+      return 'text-yellow-600';
+    case 'failed':
+      return 'text-red-600';
+    default:
+      return 'text-gray-600';
+  }
 }
 
 /**
@@ -67,16 +67,16 @@ export function getStatusIconColor(status: TransactionStatus): string {
  * @returns Formatted status label
  */
 export function getStatusLabel(status: TransactionStatus): string {
-    switch (status) {
-        case 'completed':
-            return 'Completed';
-        case 'pending':
-            return 'Pending';
-        case 'failed':
-            return 'Failed';
-        default:
-            return 'Unknown';
-    }
+  switch (status) {
+    case 'completed':
+      return 'Completed';
+    case 'pending':
+      return 'Pending';
+    case 'failed':
+      return 'Failed';
+    default:
+      return 'Unknown';
+  }
 }
 
 /**
@@ -85,7 +85,7 @@ export function getStatusLabel(status: TransactionStatus): string {
  * @returns True if status is final
  */
 export function isFinalStatus(status: TransactionStatus): boolean {
-    return status === 'completed' || status === 'failed';
+  return status === 'completed' || status === 'failed';
 }
 
 /**
@@ -94,14 +94,14 @@ export function isFinalStatus(status: TransactionStatus): boolean {
  * @returns Tailwind background color class
  */
 export function getStatusBgColor(status: TransactionStatus): string {
-    switch (status) {
-        case 'completed':
-            return 'bg-green-50';
-        case 'pending':
-            return 'bg-yellow-50';
-        case 'failed':
-            return 'bg-red-50';
-        default:
-            return 'bg-gray-50';
-    }
+  switch (status) {
+    case 'completed':
+      return 'bg-green-50';
+    case 'pending':
+      return 'bg-yellow-50';
+    case 'failed':
+      return 'bg-red-50';
+    default:
+      return 'bg-gray-50';
+  }
 }

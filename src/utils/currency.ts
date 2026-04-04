@@ -65,4 +65,3 @@ export function getCurrencySymbol(currency: Currency): string {
 export function calculateFee(amount: number, feePercent: number = 1.5): number {
   return (amount * feePercent) / 100;
 }
-

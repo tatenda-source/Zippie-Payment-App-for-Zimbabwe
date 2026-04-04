@@ -6,7 +6,18 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Separator } from './ui/separator';
 import { Badge } from './ui/badge';
-import { ChevronLeft, Wallet, Shield, Clock, ArrowRight, Smartphone, Globe, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  ChevronLeft,
+  Wallet,
+  Shield,
+  Clock,
+  ArrowRight,
+  Smartphone,
+  Globe,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react';
 import { logger } from '../utils/logger';
 import { paymentsAPI } from '../services/api';
 import type { Account } from '../App';
@@ -152,9 +163,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
       }
 
       try {
-        const result = await paymentsAPI.pollTransactionStatus(
-          processingState.transactionId!
-        );
+        const result = await paymentsAPI.pollTransactionStatus(processingState.transactionId!);
 
         if (result.paid || result.status === 'completed') {
           clearInterval(intervalId);
@@ -193,14 +202,20 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
         {accounts.map(account => (
           <Card
             key={account.id}
-            className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${selectedAccount?.id === account.id
-              ? 'ring-2 ring-primary border-primary'
-              : 'border-border hover:border-muted-foreground/30'
-              }`}
+            className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+              selectedAccount?.id === account.id
+                ? 'ring-2 ring-primary border-primary'
+                : 'border-border hover:border-muted-foreground/30'
+            }`}
             onClick={() => setSelectedAccount(account)}
-            role="button"
+            role='button'
             tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedAccount(account); }}}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSelectedAccount(account);
+              }
+            }}
             aria-pressed={selectedAccount?.id === account.id}
           >
             <CardContent className='p-4'>
@@ -234,7 +249,9 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
         <ArrowRight className='w-4 h-4 ml-2' />
       </Button>
       {!selectedAccount && (
-        <p className='text-sm text-muted-foreground text-center mt-2'>Select an account to continue</p>
+        <p className='text-sm text-muted-foreground text-center mt-2'>
+          Select an account to continue
+        </p>
       )}
     </div>
   );
@@ -351,14 +368,20 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
       <div className='space-y-3'>
         {/* EcoCash */}
         <Card
-          className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${paymentChannel === 'ecocash'
-            ? 'ring-2 ring-green-600 border-green-600'
-            : 'border-border hover:border-muted-foreground/30'
-            }`}
+          className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+            paymentChannel === 'ecocash'
+              ? 'ring-2 ring-green-600 border-green-600'
+              : 'border-border hover:border-muted-foreground/30'
+          }`}
           onClick={() => setPaymentChannel('ecocash')}
-          role="button"
+          role='button'
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentChannel('ecocash'); }}}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setPaymentChannel('ecocash');
+            }
+          }}
           aria-pressed={paymentChannel === 'ecocash'}
         >
           <CardContent className='p-4'>
@@ -370,21 +393,29 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
                 <p className='font-medium'>EcoCash</p>
                 <p className='text-sm text-gray-500'>Pay with EcoCash mobile money</p>
               </div>
-              <Badge variant='secondary' className='bg-green-50 text-green-700'>Popular</Badge>
+              <Badge variant='secondary' className='bg-green-50 text-green-700'>
+                Popular
+              </Badge>
             </div>
           </CardContent>
         </Card>
 
         {/* OneMoney */}
         <Card
-          className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${paymentChannel === 'onemoney'
-            ? 'ring-2 ring-blue-600 border-blue-600'
-            : 'border-border hover:border-muted-foreground/30'
-            }`}
+          className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+            paymentChannel === 'onemoney'
+              ? 'ring-2 ring-blue-600 border-blue-600'
+              : 'border-border hover:border-muted-foreground/30'
+          }`}
           onClick={() => setPaymentChannel('onemoney')}
-          role="button"
+          role='button'
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentChannel('onemoney'); }}}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setPaymentChannel('onemoney');
+            }
+          }}
           aria-pressed={paymentChannel === 'onemoney'}
         >
           <CardContent className='p-4'>
@@ -402,14 +433,20 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
 
         {/* Web Checkout */}
         <Card
-          className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${paymentChannel === 'web'
-            ? 'ring-2 ring-purple-600 border-purple-600'
-            : 'border-border hover:border-muted-foreground/30'
-            }`}
+          className={`cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+            paymentChannel === 'web'
+              ? 'ring-2 ring-purple-600 border-purple-600'
+              : 'border-border hover:border-muted-foreground/30'
+          }`}
           onClick={() => setPaymentChannel('web')}
-          role="button"
+          role='button'
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentChannel('web'); }}}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setPaymentChannel('web');
+            }
+          }}
           aria-pressed={paymentChannel === 'web'}
         >
           <CardContent className='p-4'>
@@ -439,7 +476,8 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
             onChange={e => setPhoneNumber(e.target.value)}
           />
           <p className='text-xs text-gray-500 mt-1'>
-            Enter the mobile number registered with {paymentChannel === 'ecocash' ? 'EcoCash' : 'OneMoney'}
+            Enter the mobile number registered with{' '}
+            {paymentChannel === 'ecocash' ? 'EcoCash' : 'OneMoney'}
           </p>
         </div>
       )}
@@ -463,7 +501,12 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
   const renderConfirmation = () => {
     const fee = parseFloat(amount) * 0.01;
     const total = parseFloat(amount) + fee;
-    const channelLabel = paymentChannel === 'ecocash' ? 'EcoCash' : paymentChannel === 'onemoney' ? 'OneMoney' : 'Web Checkout';
+    const channelLabel =
+      paymentChannel === 'ecocash'
+        ? 'EcoCash'
+        : paymentChannel === 'onemoney'
+          ? 'OneMoney'
+          : 'Web Checkout';
 
     return (
       <div className='space-y-6'>
@@ -532,7 +575,12 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
         </Card>
 
         <div className='flex gap-3'>
-          <Button variant='outline' onClick={() => setStep('payment-method')} className='flex-1' disabled={isProcessing}>
+          <Button
+            variant='outline'
+            onClick={() => setStep('payment-method')}
+            className='flex-1'
+            disabled={isProcessing}
+          >
             Back
           </Button>
           <Button onClick={handleSend} className='flex-1' disabled={isProcessing}>
@@ -544,7 +592,12 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
   };
 
   const renderProcessingScreen = () => {
-    const channelLabel = paymentChannel === 'ecocash' ? 'EcoCash' : paymentChannel === 'onemoney' ? 'OneMoney' : 'Web Checkout';
+    const channelLabel =
+      paymentChannel === 'ecocash'
+        ? 'EcoCash'
+        : paymentChannel === 'onemoney'
+          ? 'OneMoney'
+          : 'Web Checkout';
 
     return (
       <div className='space-y-6'>
@@ -624,7 +677,8 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
         {processingState.status === 'waiting' && (
           <div className='text-center'>
             <p className='text-sm text-gray-500 mb-2'>
-              Sending {formatCurrency(parseFloat(amount), selectedAccount?.currency || 'USD')} to {recipient}
+              Sending {formatCurrency(parseFloat(amount), selectedAccount?.currency || 'USD')} to{' '}
+              {recipient}
             </p>
           </div>
         )}
@@ -648,7 +702,14 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
       {/* Header */}
       <div className='bg-white border-b px-4 py-4'>
         <div className='flex items-center gap-4'>
-          <Button variant='ghost' size='icon' onClick={step === 'processing' ? undefined : onBack} disabled={step === 'processing'} aria-label='Go back' className='min-w-11 min-h-11'>
+          <Button
+            variant='ghost'
+            size='icon'
+            onClick={step === 'processing' ? undefined : onBack}
+            disabled={step === 'processing'}
+            aria-label='Go back'
+            className='min-w-11 min-h-11'
+          >
             <ChevronLeft className='w-5 h-5' />
           </Button>
           <div className='flex items-center gap-2'>
