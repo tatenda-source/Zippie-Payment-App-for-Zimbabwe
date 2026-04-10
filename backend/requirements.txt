@@ -15,10 +15,10 @@ alembic==1.12.1
 httpx==0.25.2
 
 # Payment Gateway
-paynow==2.1.2
+paynow==1.0.8
 
 # Utilities
-pydantic==2.5.0
+pydantic[email]==2.5.0
 pydantic-settings==2.1.0
 python-dateutil==2.8.2
 

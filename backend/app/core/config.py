@@ -2,9 +2,9 @@
 Application Configuration
 """
 
-import os
 from typing import List
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -12,21 +12,17 @@ class Settings(BaseSettings):
     """Application settings"""
 
     # Application
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
-    DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
     PROJECT_NAME: str = "Zippie Payment Platform"
 
     # Database
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", "postgresql://user:password@localhost:5432/zippie_db"
-    )
+    DATABASE_URL: str = "postgresql://user:password@localhost:5432/zippie_db"
 
     # JWT
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
-    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
-        os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
-    )
+    SECRET_KEY: str = ""
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     @property
     def secret_key_valid(self) -> bool:
@@ -42,29 +38,20 @@ class Settings(BaseSettings):
         return len(self.SECRET_KEY) >= 32
 
     # Paynow Zimbabwe
-    PAYNOW_INTEGRATION_ID: str = os.getenv("PAYNOW_INTEGRATION_ID", "")
-    PAYNOW_INTEGRATION_KEY: str = os.getenv("PAYNOW_INTEGRATION_KEY", "")
-    PAYNOW_RETURN_URL: str = os.getenv(
-        "PAYNOW_RETURN_URL", "http://localhost:3000/payment/return"
-    )
-    PAYNOW_RESULT_URL: str = os.getenv(
-        "PAYNOW_RESULT_URL", "http://localhost:8000/api/v1/payments/paynow/webhook"
-    )
+    PAYNOW_INTEGRATION_ID: str = ""
+    PAYNOW_INTEGRATION_KEY: str = ""
+    PAYNOW_RETURN_URL: str = "http://localhost:3000/payment/return"
+    PAYNOW_RESULT_URL: str = "http://localhost:8000/api/v1/payments/paynow/webhook"
 
     # CORS
-    _cors_origins = os.getenv("CORS_ORIGINS", "")
-    CORS_ORIGINS: List[str] = (
-        _cors_origins.split(",")
-        if _cors_origins
-        else [
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://127.0.0.1:3000",
-        ]
-    )
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     # Redis (Optional)
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_URL: str = "redis://localhost:6379/0"
 
     class Config:
         case_sensitive = True
