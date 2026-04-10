@@ -17,6 +17,7 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Zap,
 } from 'lucide-react';
 import { logger } from '../utils/logger';
 import { paymentsAPI } from '../services/api';
@@ -55,6 +56,13 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
     status: 'initiating',
   });
 
+  // Zippie user detection (instant P2P path)
+  const [zippieUser, setZippieUser] = useState<{
+    isZippieUser: boolean;
+    displayName?: string;
+  } | null>(null);
+  const [isResolvingRecipient, setIsResolvingRecipient] = useState(false);
+
   const formatCurrency = (amount: number, currency: 'USD' | 'ZWL') => {
     if (currency === 'USD') {
       return `$${amount.toFixed(2)}`;
@@ -66,7 +74,13 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
     if (step === 'source' && selectedAccount) {
       setStep('recipient');
     } else if (step === 'recipient' && amount && recipient) {
-      setStep('payment-method');
+      // If the recipient is a Zippie user, skip the payment-method step —
+      // the transfer goes through the internal ledger, not Paynow.
+      if (zippieUser?.isZippieUser) {
+        setStep('confirm');
+      } else {
+        setStep('payment-method');
+      }
     } else if (step === 'payment-method') {
       setStep('confirm');
     }
@@ -79,8 +93,74 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
     }
   }, [recipientMethod, recipient]);
 
+  // Debounced recipient resolver — checks if the entered phone/email is a Zippie user
+  useEffect(() => {
+    const trimmed = recipient.trim();
+    if (!trimmed) {
+      setZippieUser(null);
+      return;
+    }
+
+    setIsResolvingRecipient(true);
+    const handle = setTimeout(async () => {
+      try {
+        const result = await paymentsAPI.resolveRecipient(trimmed);
+        setZippieUser({
+          isZippieUser: result.is_zippie_user,
+          displayName: result.display_name,
+        });
+      } catch (err) {
+        logger.error('Recipient resolution failed', err);
+        setZippieUser(null);
+      } finally {
+        setIsResolvingRecipient(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(handle);
+  }, [recipient]);
+
   const handleSend = async () => {
     setIsProcessing(true);
+
+    // Instant path: recipient is a Zippie user → internal ledger transfer.
+    // The backend returns a completed transaction in <50ms. No Paynow, no
+    // processing screen, go straight to success.
+    if (zippieUser?.isZippieUser) {
+      try {
+        await paymentsAPI.createTransaction({
+          transaction_type: 'sent',
+          amount: parseFloat(amount),
+          currency: selectedAccount?.currency || 'USD',
+          recipient,
+          description,
+          payment_method: 'zippie_internal',
+          account_id: selectedAccount?.id,
+        });
+
+        await onSuccess({
+          type: 'send',
+          amount: parseFloat(amount),
+          currency: selectedAccount?.currency || 'USD',
+          recipient,
+          description,
+          account: selectedAccount?.name,
+          fee: 0,
+          paymentMethod: 'zippie_internal',
+        });
+      } catch (error: any) {
+        logger.error('Instant transfer failed', error);
+        setIsProcessing(false);
+        setStep('processing');
+        setProcessingState({
+          status: 'failed',
+          errorMessage: error?.message || 'Transfer failed',
+        });
+      }
+      return;
+    }
+
+    // Slow path: non-Zippie recipient → route through Paynow.
     setStep('processing');
     setProcessingState({ status: 'initiating' });
 
@@ -332,7 +412,56 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
             }
             value={recipient}
             onChange={e => setRecipient(e.target.value)}
+            aria-describedby='recipient-status'
           />
+          <div id='recipient-status' className='mt-2 min-h-[24px]'>
+            {isResolvingRecipient && recipient.trim() && (
+              <p className='text-xs text-muted-foreground flex items-center gap-1'>
+                <Loader2 className='w-3 h-3 animate-spin' aria-hidden='true' />
+                Checking recipient...
+              </p>
+            )}
+            {!isResolvingRecipient && zippieUser?.isZippieUser && (
+              <div
+                className='flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 animate-fade-in'
+                role='status'
+                aria-live='polite'
+              >
+                <Zap
+                  className='w-4 h-4 text-green-700 dark:text-green-400 fill-green-700 dark:fill-green-400'
+                  aria-hidden='true'
+                />
+                <div className='flex-1'>
+                  <p className='text-sm font-medium text-green-800 dark:text-green-300'>
+                    {zippieUser.displayName || 'Zippie user'}
+                  </p>
+                  <p className='text-xs text-green-700 dark:text-green-400'>
+                    Instant transfer — no fees
+                  </p>
+                </div>
+              </div>
+            )}
+            {!isResolvingRecipient && zippieUser && !zippieUser.isZippieUser && (
+              <div
+                className='flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 animate-fade-in'
+                role='status'
+                aria-live='polite'
+              >
+                <Smartphone
+                  className='w-4 h-4 text-blue-700 dark:text-blue-400'
+                  aria-hidden='true'
+                />
+                <div className='flex-1'>
+                  <p className='text-sm font-medium text-blue-800 dark:text-blue-300'>
+                    Mobile money transfer
+                  </p>
+                  <p className='text-xs text-blue-700 dark:text-blue-400'>
+                    Via EcoCash / OneMoney — 1-2 min
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div>
@@ -499,7 +628,8 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
   );
 
   const renderConfirmation = () => {
-    const fee = parseFloat(amount) * 0.01;
+    const isInstant = zippieUser?.isZippieUser === true;
+    const fee = isInstant ? 0 : parseFloat(amount) * 0.01;
     const total = parseFloat(amount) + fee;
     const channelLabel =
       paymentChannel === 'ecocash'
@@ -511,8 +641,12 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
     return (
       <div className='space-y-6'>
         <div className='text-center mb-6'>
-          <h2 className='text-xl font-semibold mb-2'>Confirm Payment</h2>
-          <p className='text-gray-500'>Review your transaction details</p>
+          <h2 className='text-xl font-semibold mb-2'>
+            {isInstant ? 'Confirm Instant Transfer' : 'Confirm Payment'}
+          </h2>
+          <p className='text-gray-500'>
+            {isInstant ? 'Review before sending' : 'Review your transaction details'}
+          </p>
         </div>
 
         <Card className='border-0 shadow-lg'>
@@ -531,22 +665,42 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
               </div>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>To</span>
-                <span className='font-medium'>{recipient}</span>
+                <span className='font-medium'>
+                  {isInstant && zippieUser?.displayName
+                    ? zippieUser.displayName
+                    : recipient}
+                </span>
               </div>
-              <div className='flex justify-between'>
-                <span className='text-gray-600'>Payment method</span>
-                <span className='font-medium'>{channelLabel}</span>
-              </div>
-              {paymentChannel !== 'web' && (
+              {isInstant ? (
                 <div className='flex justify-between'>
-                  <span className='text-gray-600'>Phone</span>
-                  <span className='font-medium'>{phoneNumber}</span>
+                  <span className='text-gray-600'>Method</span>
+                  <span className='font-medium flex items-center gap-1'>
+                    <Zap className='w-3 h-3 text-green-700 fill-green-700' aria-hidden='true' />
+                    Zippie Instant
+                  </span>
                 </div>
+              ) : (
+                <>
+                  <div className='flex justify-between'>
+                    <span className='text-gray-600'>Payment method</span>
+                    <span className='font-medium'>{channelLabel}</span>
+                  </div>
+                  {paymentChannel !== 'web' && (
+                    <div className='flex justify-between'>
+                      <span className='text-gray-600'>Phone</span>
+                      <span className='font-medium'>{phoneNumber}</span>
+                    </div>
+                  )}
+                </>
               )}
               <div className='flex justify-between'>
-                <span className='text-gray-600'>Processing fee</span>
+                <span className='text-gray-600'>
+                  {isInstant ? 'Fee' : 'Processing fee'}
+                </span>
                 <span className='font-medium'>
-                  {formatCurrency(fee, selectedAccount?.currency || 'USD')}
+                  {isInstant
+                    ? 'Free'
+                    : formatCurrency(fee, selectedAccount?.currency || 'USD')}
                 </span>
               </div>
               <Separator />
@@ -556,35 +710,49 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
               </div>
             </div>
 
-            <div className='flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg'>
-              <Shield className='w-4 h-4 text-green-700 dark:text-green-400' />
-              <span className='text-sm text-green-700 dark:text-green-400'>
-                Secured by Paynow Zimbabwe
-              </span>
-            </div>
+            {isInstant ? (
+              <div className='flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg'>
+                <Zap
+                  className='w-4 h-4 text-green-700 dark:text-green-400 fill-green-700 dark:fill-green-400'
+                  aria-hidden='true'
+                />
+                <span className='text-sm text-green-700 dark:text-green-400'>
+                  Instant transfer — arrives in under a second
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className='flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg'>
+                  <Shield className='w-4 h-4 text-green-700 dark:text-green-400' />
+                  <span className='text-sm text-green-700 dark:text-green-400'>
+                    Secured by Paynow Zimbabwe
+                  </span>
+                </div>
 
-            <div className='flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg'>
-              <Clock className='w-4 h-4 text-blue-600' />
-              <span className='text-sm text-blue-700'>
-                {paymentChannel === 'web'
-                  ? 'You will be redirected to complete payment'
-                  : 'You will receive a prompt on your phone'}
-              </span>
-            </div>
+                <div className='flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg'>
+                  <Clock className='w-4 h-4 text-blue-600' />
+                  <span className='text-sm text-blue-700'>
+                    {paymentChannel === 'web'
+                      ? 'You will be redirected to complete payment'
+                      : 'You will receive a prompt on your phone'}
+                  </span>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
         <div className='flex gap-3'>
           <Button
             variant='outline'
-            onClick={() => setStep('payment-method')}
+            onClick={() => setStep(isInstant ? 'recipient' : 'payment-method')}
             className='flex-1'
             disabled={isProcessing}
           >
             Back
           </Button>
           <Button onClick={handleSend} className='flex-1' disabled={isProcessing}>
-            {isProcessing ? 'Processing...' : 'Pay Now'}
+            {isProcessing ? 'Sending...' : isInstant ? 'Send Instantly' : 'Pay Now'}
           </Button>
         </div>
       </div>

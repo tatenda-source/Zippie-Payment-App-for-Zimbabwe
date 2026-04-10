@@ -257,5 +257,15 @@ export const paymentsAPI = {
   }> => {
     return apiRequest(`/payments/paynow/status/${transactionId}`);
   },
+
+  resolveRecipient: async (
+    query: string
+  ): Promise<{
+    is_zippie_user: boolean;
+    query: string;
+    display_name?: string;
+  }> => {
+    return apiRequest(`/payments/resolve-recipient?query=${encodeURIComponent(query)}`);
+  },
 };
 
