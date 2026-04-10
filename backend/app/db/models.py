@@ -5,6 +5,7 @@ Database models for Zippie Payment Platform
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Float,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -90,5 +92,55 @@ class Transaction(Base):
     # Relationships
     user = relationship("User", back_populates="transactions")
     account = relationship("Account", back_populates="transactions")
+    ledger_entries = relationship(
+        "LedgerEntry", back_populates="transaction", cascade="all, delete-orphan"
+    )
+
+
+class LedgerEntry(Base):
+    """Double-entry ledger entry.
+
+    Every financial movement is recorded as one or more LedgerEntry rows.
+    Internal P2P transfers create a balanced pair (1 debit, 1 credit).
+    External transfers (via Paynow) create a single debit (credit side
+    is external to the system).
+
+    Invariants enforced at the DB level:
+      - amount is always positive
+      - direction is 'debit' or 'credit'
+      - A transaction cannot have two entries with the same (account, direction)
+    """
+
+    __tablename__ = "ledger_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(
+        Integer, ForeignKey("transactions.id"), nullable=False, index=True
+    )
+    account_id = Column(
+        Integer, ForeignKey("accounts.id"), nullable=False, index=True
+    )
+    amount = Column(Float, nullable=False)
+    direction = Column(String, nullable=False)  # 'debit' or 'credit'
+    balance_after = Column(Float, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+    # Relationships
+    transaction = relationship("Transaction", back_populates="ledger_entries")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "transaction_id",
+            "account_id",
+            "direction",
+            name="uq_ledger_tx_account_direction",
+        ),
+        CheckConstraint("amount > 0", name="ck_ledger_amount_positive"),
+        CheckConstraint(
+            "direction IN ('debit', 'credit')", name="ck_ledger_direction_valid"
+        ),
+    )
 
 

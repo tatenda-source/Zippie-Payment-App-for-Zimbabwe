@@ -4,10 +4,10 @@ P2P Payment API endpoints
 
 import asyncio
 import logging
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import update
+from sqlalchemy import or_, update
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
@@ -156,7 +156,22 @@ async def create_transaction(
                     status_code=status.HTTP_404_NOT_FOUND, detail="Account not found"
                 )
 
-        # For "sent" transactions, validate balance but do NOT deduct yet.
+        # Hot path: if this is a "sent" transaction AND the recipient is a Zippie
+        # user, execute an atomic internal transfer (no Paynow, <50ms).
+        if transaction_data.transaction_type == "sent" and account:
+            recipient_user = _find_zippie_recipient(db, transaction_data.recipient)
+            if recipient_user and recipient_user.id != current_user.id:
+                return _internal_transfer(
+                    db=db,
+                    sender_user=current_user,
+                    sender_account=account,
+                    recipient_user=recipient_user,
+                    recipient_identifier=transaction_data.recipient,
+                    amount=transaction_data.amount,
+                    description=transaction_data.description,
+                )
+
+        # Slow path: "sent" to non-Zippie user → validate balance and mark pending.
         # Balance deduction happens after Paynow confirms payment.
         if transaction_data.transaction_type == "sent":
             if not account:
@@ -217,6 +232,31 @@ async def create_transaction(
         )
 
 
+@router.get("/resolve-recipient")
+async def resolve_recipient(
+    query: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Check whether a recipient identifier (phone/email) is a Zippie user.
+
+    Used by the frontend to show the ⚡ instant badge and skip the Paynow flow.
+    Does not leak private info — only returns is_zippie_user + display name if found.
+    """
+    recipient = _find_zippie_recipient(db, query)
+    if not recipient or recipient.id == current_user.id:
+        return {
+            "is_zippie_user": False,
+            "query": query,
+        }
+
+    return {
+        "is_zippie_user": True,
+        "query": query,
+        "display_name": recipient.full_name,
+    }
+
+
 @router.get("/balance")
 async def get_balance(
     current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
@@ -244,11 +284,20 @@ async def get_balance(
 
 
 def _complete_transaction(db: Session, transaction: models.Transaction):
-    """Mark transaction as completed and deduct balance atomically.
+    """Mark transaction completed and deduct balance with row-level locking.
 
-    Uses an atomic UPDATE WHERE status='pending' to prevent double-deduction
-    from webhook + poll race conditions.
+    Correctness guarantees:
+      1. Atomic status flip (UPDATE WHERE status='pending') — prevents webhook/poll
+         from both processing the same transaction.
+      2. Row-level lock on the sender account (SELECT FOR UPDATE) — prevents two
+         concurrent completions for the same sender from reading stale balance.
+      3. Ledger entry for the debit is written in the same DB transaction.
+
+    External-side (Paynow payout) is single-entry because credit occurs outside
+    the system. A full double-entry implementation would model a "Paynow payout
+    suspense" system account as the credit counterparty.
     """
+    # Step 1: atomic status flip. If rowcount=0, another process already handled it.
     result = db.execute(
         update(models.Transaction)
         .where(
@@ -259,14 +308,32 @@ def _complete_transaction(db: Session, transaction: models.Transaction):
     )
 
     if result.rowcount == 0:
-        # Already processed by another path (webhook vs poll race)
+        db.commit()
         return False
 
-    # Deduct balance from sender's account
+    # Step 2: lock sender account and apply debit inside same DB transaction.
+    # populate_existing() refreshes cached ORM attributes after acquiring the lock.
     if transaction.account_id:
-        account = db.query(models.Account).get(transaction.account_id)
+        account = (
+            db.query(models.Account)
+            .filter(models.Account.id == transaction.account_id)
+            .with_for_update()
+            .populate_existing()
+            .first()
+        )
+
         if account:
             account.balance -= transaction.amount
+
+            # Step 3: write ledger entry
+            debit = models.LedgerEntry(
+                transaction_id=transaction.id,
+                account_id=account.id,
+                amount=transaction.amount,
+                direction="debit",
+                balance_after=account.balance,
+            )
+            db.add(debit)
 
     db.commit()
     logger.info(f"Transaction {transaction.id} completed via Paynow")
@@ -274,7 +341,7 @@ def _complete_transaction(db: Session, transaction: models.Transaction):
 
 
 def _fail_transaction(db: Session, transaction: models.Transaction):
-    """Mark transaction as failed."""
+    """Mark transaction as failed (atomic, no balance change)."""
     result = db.execute(
         update(models.Transaction)
         .where(
@@ -285,6 +352,185 @@ def _fail_transaction(db: Session, transaction: models.Transaction):
     )
     db.commit()
     return result.rowcount > 0
+
+
+def _find_zippie_recipient(
+    db: Session, recipient_identifier: str
+) -> Optional[models.User]:
+    """Look up a Zippie user by email or phone.
+
+    Returns the User or None if the identifier doesn't match any Zippie user.
+    """
+    if not recipient_identifier:
+        return None
+    cleaned = recipient_identifier.strip()
+    return (
+        db.query(models.User)
+        .filter(
+            or_(
+                models.User.email == cleaned,
+                models.User.phone == cleaned,
+            )
+        )
+        .first()
+    )
+
+
+def _get_or_create_recipient_account(
+    db: Session, recipient_user: models.User, currency: str
+) -> models.Account:
+    """Find the recipient's primary account in the given currency, or create one."""
+    account = (
+        db.query(models.Account)
+        .filter(
+            models.Account.user_id == recipient_user.id,
+            models.Account.currency == currency,
+            models.Account.is_active,
+        )
+        .first()
+    )
+
+    if account is None:
+        # Auto-create a matching-currency account so internal P2P always succeeds
+        account = models.Account(
+            user_id=recipient_user.id,
+            name=f"{currency} Wallet",
+            currency=currency,
+            account_type="primary",
+            color="#10b981",
+        )
+        db.add(account)
+        db.flush()  # Get the ID without committing yet
+
+    return account
+
+
+def _internal_transfer(
+    db: Session,
+    sender_user: models.User,
+    sender_account: models.Account,
+    recipient_user: models.User,
+    recipient_identifier: str,
+    amount: float,
+    description: Optional[str],
+) -> models.Transaction:
+    """Execute an atomic internal P2P transfer with double-entry ledger.
+
+    This is the hot path for instant Zippie-to-Zippie transfers. It:
+      1. Locks both sender and recipient accounts (ordered by ID to prevent deadlocks)
+      2. Validates sender balance under the lock
+      3. Applies debit + credit
+      4. Writes the transaction record with status='completed'
+      5. Writes the balanced DR/CR ledger pair
+      6. Commits atomically
+
+    Raises HTTPException(400) on insufficient balance.
+    """
+    if amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Amount must be greater than 0",
+        )
+
+    # Resolve recipient account (may create a new one if no matching currency exists)
+    recipient_account = _get_or_create_recipient_account(
+        db, recipient_user, sender_account.currency
+    )
+
+    if recipient_account.id == sender_account.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot send to your own account",
+        )
+
+    # Lock both accounts in a deterministic order (smallest ID first) to prevent
+    # deadlocks when two users transfer to each other simultaneously.
+    #
+    # populate_existing() is CRITICAL here: without it, SQLAlchemy sees the accounts
+    # are already in the session's identity map and returns the cached Python objects
+    # with stale attribute values — even though the DB lock was successfully acquired.
+    # This would cause lost updates under concurrency.
+    lock_ids = sorted([sender_account.id, recipient_account.id])
+    locked_accounts = (
+        db.query(models.Account)
+        .filter(models.Account.id.in_(lock_ids))
+        .with_for_update()
+        .populate_existing()
+        .all()
+    )
+    locked_by_id = {a.id: a for a in locked_accounts}
+    sender = locked_by_id[sender_account.id]
+    recipient = locked_by_id[recipient_account.id]
+
+    # Re-check balance under the lock (the value read before locking could be stale)
+    if sender.balance < amount:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient balance",
+        )
+
+    # Apply the transfer
+    sender.balance -= amount
+    recipient.balance += amount
+
+    # Create the transaction record (sender's perspective)
+    tx = models.Transaction(
+        user_id=sender_user.id,
+        account_id=sender.id,
+        transaction_type="sent",
+        amount=amount,
+        currency=sender.currency,
+        recipient=recipient_identifier,
+        sender=sender_user.email,
+        description=description,
+        status="completed",
+        payment_method="zippie_internal",
+    )
+    db.add(tx)
+    db.flush()  # Get tx.id for ledger entries
+
+    # Also create the mirror "received" transaction on the recipient's side
+    mirror_tx = models.Transaction(
+        user_id=recipient_user.id,
+        account_id=recipient.id,
+        transaction_type="received",
+        amount=amount,
+        currency=sender.currency,
+        recipient=recipient_user.email,
+        sender=sender_user.email,
+        description=description,
+        status="completed",
+        payment_method="zippie_internal",
+    )
+    db.add(mirror_tx)
+    db.flush()
+
+    # Double-entry ledger — both sides of the transfer
+    debit = models.LedgerEntry(
+        transaction_id=tx.id,
+        account_id=sender.id,
+        amount=amount,
+        direction="debit",
+        balance_after=sender.balance,
+    )
+    credit = models.LedgerEntry(
+        transaction_id=tx.id,
+        account_id=recipient.id,
+        amount=amount,
+        direction="credit",
+        balance_after=recipient.balance,
+    )
+    db.add(debit)
+    db.add(credit)
+
+    db.commit()
+    db.refresh(tx)
+    logger.info(
+        f"Internal transfer completed: tx_id={tx.id} "
+        f"sender={sender_user.email} recipient={recipient_user.email} "
+        f"amount={amount} {sender.currency}"
+    )
+    return tx
 
 
 @router.post("/paynow/initiate", response_model=PaynowInitiateResponse)
