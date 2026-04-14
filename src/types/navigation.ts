@@ -7,7 +7,9 @@ export type Screen =
     | 'send'
     | 'request'
     | 'history'
-    | 'payment-success';
+    | 'payment-success'
+    | 'topup'
+    | 'cashout';
 
 export interface ScreenData {
     symbol?: string;
