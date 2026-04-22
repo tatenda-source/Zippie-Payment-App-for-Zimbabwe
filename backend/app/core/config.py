@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     DAILY_LIMIT_UNVERIFIED: float = 200.0
     DAILY_LIMIT_VERIFIED: float = 1000.0
 
+    # Admin allowlist — comma-separated emails that can hit /admin/* endpoints.
+    # Fail-closed: empty allowlist means no one is admin on this environment.
+    ADMIN_EMAILS: str = ""
+
+    @property
+    def admin_emails_list(self) -> List[str]:
+        return [e.strip().lower() for e in self.ADMIN_EMAILS.split(",") if e.strip()]
+
     class Config:
         case_sensitive = True
         env_file = ".env"
