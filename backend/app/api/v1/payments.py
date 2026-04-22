@@ -4,7 +4,9 @@ P2P Payment API endpoints
 
 import asyncio
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -377,18 +379,58 @@ def _fail_transaction(db: Session, transaction: models.Transaction):
     return result.rowcount > 0
 
 
-def _enforce_velocity_limit(db: Session, user: models.User, amount: float):
+def _build_paynow_reference(tx_id: int) -> str:
+    """Build an unenumerable Paynow reference: ZIPPIE-{uuid12}-{tx_id}.
+
+    The UUID segment makes the reference non-guessable for an outside
+    observer, which matters because references can leak in logs, support
+    tickets, and Paynow dashboards. The tx_id suffix stays so the webhook
+    handler can still do an O(1) transaction lookup without a secondary
+    index on a JSONB column.
+    """
+    return f"ZIPPIE-{uuid.uuid4().hex[:12]}-{tx_id}"
+
+
+def _parse_tx_id_from_reference(reference: str) -> Optional[int]:
+    """Extract the transaction ID from either reference format.
+
+    Accepts the new form `ZIPPIE-{uuid12}-{id}` and the legacy form
+    `ZIPPIE-{id}`. Returns None on unparseable input.
+    """
+    if not reference or not reference.startswith("ZIPPIE-"):
+        return None
+    try:
+        # Last hyphen-separated segment is always the tx_id in both formats.
+        return int(reference.rsplit("-", 1)[-1])
+    except (ValueError, AttributeError):
+        return None
+
+
+def _to_decimal(amount) -> Decimal:
+    """Safely cast a float-from-Pydantic into Decimal without precision loss.
+
+    Using Decimal(str(x)) avoids the binary-float representation issue where
+    Decimal(0.1) becomes 0.10000000000000000555... The str() round-trip gives
+    us the intended decimal value.
+    """
+    if isinstance(amount, Decimal):
+        return amount
+    return Decimal(str(amount))
+
+
+def _enforce_velocity_limit(db: Session, user: models.User, amount):
     """Reject if user's rolling-24h outgoing total + amount exceeds their tier cap.
 
     Counts "sent" transactions in statuses pending | completed (so an attacker
     can't flood pending sends under the ceiling). Multi-currency is treated 1:1
     until FX is live.
     """
-    cap = (
+    cap = _to_decimal(
         settings.DAILY_LIMIT_VERIFIED
         if user.is_verified
         else settings.DAILY_LIMIT_UNVERIFIED
     )
+    amount_dec = _to_decimal(amount)
     since = datetime.now(timezone.utc) - timedelta(hours=24)
 
     total_24h = (
@@ -402,9 +444,9 @@ def _enforce_velocity_limit(db: Session, user: models.User, amount: float):
         .with_entities(models.Transaction.amount)
         .all()
     )
-    used = sum(row[0] for row in total_24h)
+    used = sum((row[0] for row in total_24h), Decimal(0))
 
-    if used + amount > cap:
+    if used + amount_dec > cap:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(
@@ -471,7 +513,7 @@ def _internal_transfer(
     sender_account: models.Account,
     recipient_user: models.User,
     recipient_identifier: str,
-    amount: float,
+    amount,
     description: Optional[str],
 ) -> models.Transaction:
     """Execute an atomic internal P2P transfer with double-entry ledger.
@@ -486,6 +528,7 @@ def _internal_transfer(
 
     Raises HTTPException(400) on insufficient balance.
     """
+    amount = _to_decimal(amount)
     if amount <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -641,7 +684,7 @@ async def initiate_paynow_payment(
             detail="Phone number is required for mobile payments",
         )
 
-    reference = f"ZIPPIE-{transaction.id}"
+    reference = _build_paynow_reference(transaction.id)
 
     try:
         if request.payment_channel == "web":
@@ -650,7 +693,7 @@ async def initiate_paynow_payment(
                 reference,
                 current_user.email,
                 transaction.description or "Zippie Payment",
-                transaction.amount,
+                float(transaction.amount),
             )
         else:
             result = await asyncio.to_thread(
@@ -658,7 +701,7 @@ async def initiate_paynow_payment(
                 reference,
                 current_user.email,
                 transaction.description or "Zippie Payment",
-                transaction.amount,
+                float(transaction.amount),
                 request.phone_number,
                 request.payment_channel,
             )
@@ -735,10 +778,11 @@ async def paynow_webhook(request: Request, db: Session = Depends(get_db)):
             )
             return {"status": "ok", "deduped": True}
 
-    # Extract transaction ID from reference (format: ZIPPIE-{id})
-    try:
-        tx_id = int(reference.replace("ZIPPIE-", ""))
-    except (ValueError, AttributeError):
+    # Extract transaction ID from reference. New format: ZIPPIE-{uuid12}-{id}.
+    # Old format (ZIPPIE-{id}) is still accepted for any in-flight transactions
+    # issued before the UUID rollout.
+    tx_id = _parse_tx_id_from_reference(reference)
+    if tx_id is None:
         logger.error(f"Invalid Paynow reference format: {reference}")
         db.commit()
         return {"status": "ok"}
@@ -912,7 +956,7 @@ async def initiate_topup(
     db.add(transaction)
     db.flush()  # get transaction.id
 
-    reference = f"ZIPPIE-{transaction.id}"
+    reference = _build_paynow_reference(transaction.id)
 
     try:
         if request.payment_channel == "web":
@@ -921,7 +965,7 @@ async def initiate_topup(
                 reference,
                 current_user.email,
                 description,
-                request.amount,
+                float(request.amount),
             )
         else:
             result = await asyncio.to_thread(
@@ -929,7 +973,7 @@ async def initiate_topup(
                 reference,
                 current_user.email,
                 description,
-                request.amount,
+                float(request.amount),
                 request.phone_number,
                 request.payment_channel,
             )

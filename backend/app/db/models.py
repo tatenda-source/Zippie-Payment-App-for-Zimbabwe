@@ -8,7 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
-    Float,
+    Numeric,
     ForeignKey,
     Index,
     Integer,
@@ -54,7 +54,7 @@ class Account(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
-    balance = Column(Float, default=0.0, nullable=False)
+    balance = Column(Numeric(18, 2), default=0, nullable=False)
     currency = Column(String, default="USD", nullable=False)  # USD, ZWL
     account_type = Column(String, default="primary")  # primary, savings, investment
     color = Column(String, default="#10b981")
@@ -76,7 +76,7 @@ class Transaction(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
     transaction_type = Column(String, nullable=False)  # sent, received, request
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(18, 2), nullable=False)
     currency = Column(String, default="USD", nullable=False)
     recipient = Column(String, nullable=False, index=True)
     sender = Column(String, nullable=True, index=True)
@@ -85,7 +85,7 @@ class Transaction(Base):
         String, default="pending", nullable=False
     )  # completed, pending, failed
     payment_method = Column(String, nullable=True)
-    fee = Column(Float, default=0.0)
+    fee = Column(Numeric(18, 2), default=0)
     transaction_metadata = Column(JSON, nullable=True)  # Additional data
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -121,9 +121,9 @@ class LedgerEntry(Base):
     account_id = Column(
         Integer, ForeignKey("accounts.id"), nullable=False, index=True
     )
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(18, 2), nullable=False)
     direction = Column(String, nullable=False)  # 'debit' or 'credit'
-    balance_after = Column(Float, nullable=False)
+    balance_after = Column(Numeric(18, 2), nullable=False)
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
