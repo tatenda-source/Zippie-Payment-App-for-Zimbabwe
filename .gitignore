@@ -132,6 +132,12 @@ build/
 backend/.env
 backend/app/models/*.pkl
 backend/*.db
+
+# Python test artifacts
+backend/.coverage
+backend/coverage.xml
+backend/htmlcov/
+.pytest_cache/
 backend/*.sqlite
 
 # IDE
