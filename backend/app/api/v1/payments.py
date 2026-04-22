@@ -4,13 +4,16 @@ P2P Payment API endpoints
 
 import asyncio
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import or_, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
+from app.core.config import settings
 from app.db import models
 from app.db.database import get_db
 from app.db.schemas import (
@@ -18,6 +21,7 @@ from app.db.schemas import (
     AccountResponse,
     PaynowInitiateRequest,
     PaynowInitiateResponse,
+    PaynowTopupRequest,
     TransactionCreate,
     TransactionResponse,
     TransactionStatusResponse,
@@ -136,6 +140,11 @@ async def create_transaction(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Amount must be greater than 0",
         )
+
+    # Velocity limit — reject before any DB writes or Paynow calls.
+    # Applies only to outgoing money movements.
+    if transaction_data.transaction_type == "sent":
+        _enforce_velocity_limit(db, current_user, transaction_data.amount)
 
     try:
         # Verify account belongs to user if account_id is provided
@@ -284,18 +293,21 @@ async def get_balance(
 
 
 def _complete_transaction(db: Session, transaction: models.Transaction):
-    """Mark transaction completed and deduct balance with row-level locking.
+    """Mark transaction completed and apply the balance change atomically.
+
+    Direction depends on payment_method:
+      - paynow_topup: CREDIT the target account (on-ramp, money arriving)
+      - anything else (sent/send via Paynow): DEBIT the sender account (off-ramp)
 
     Correctness guarantees:
       1. Atomic status flip (UPDATE WHERE status='pending') — prevents webhook/poll
          from both processing the same transaction.
-      2. Row-level lock on the sender account (SELECT FOR UPDATE) — prevents two
-         concurrent completions for the same sender from reading stale balance.
-      3. Ledger entry for the debit is written in the same DB transaction.
+      2. Row-level lock on the affected account (SELECT FOR UPDATE) — prevents
+         concurrent completions from reading stale balance.
+      3. Ledger entry written in the same DB transaction.
 
-    External-side (Paynow payout) is single-entry because credit occurs outside
-    the system. A full double-entry implementation would model a "Paynow payout
-    suspense" system account as the credit counterparty.
+    Paynow-side is single-entry (counterparty is external). A full double-entry
+    would model a "Paynow suspense" system account as the other leg.
     """
     # Step 1: atomic status flip. If rowcount=0, another process already handled it.
     result = db.execute(
@@ -311,7 +323,9 @@ def _complete_transaction(db: Session, transaction: models.Transaction):
         db.commit()
         return False
 
-    # Step 2: lock sender account and apply debit inside same DB transaction.
+    is_topup = transaction.payment_method == "paynow_topup"
+
+    # Step 2: lock the account and apply balance change in the same DB transaction.
     # populate_existing() refreshes cached ORM attributes after acquiring the lock.
     if transaction.account_id:
         account = (
@@ -323,20 +337,29 @@ def _complete_transaction(db: Session, transaction: models.Transaction):
         )
 
         if account:
-            account.balance -= transaction.amount
+            if is_topup:
+                account.balance += transaction.amount
+                direction = "credit"
+            else:
+                account.balance -= transaction.amount
+                direction = "debit"
 
             # Step 3: write ledger entry
-            debit = models.LedgerEntry(
-                transaction_id=transaction.id,
-                account_id=account.id,
-                amount=transaction.amount,
-                direction="debit",
-                balance_after=account.balance,
+            db.add(
+                models.LedgerEntry(
+                    transaction_id=transaction.id,
+                    account_id=account.id,
+                    amount=transaction.amount,
+                    direction=direction,
+                    balance_after=account.balance,
+                )
             )
-            db.add(debit)
 
     db.commit()
-    logger.info(f"Transaction {transaction.id} completed via Paynow")
+    logger.info(
+        f"Transaction {transaction.id} completed via Paynow "
+        f"({'topup/credit' if is_topup else 'send/debit'})"
+    )
     return True
 
 
@@ -352,6 +375,43 @@ def _fail_transaction(db: Session, transaction: models.Transaction):
     )
     db.commit()
     return result.rowcount > 0
+
+
+def _enforce_velocity_limit(db: Session, user: models.User, amount: float):
+    """Reject if user's rolling-24h outgoing total + amount exceeds their tier cap.
+
+    Counts "sent" transactions in statuses pending | completed (so an attacker
+    can't flood pending sends under the ceiling). Multi-currency is treated 1:1
+    until FX is live.
+    """
+    cap = (
+        settings.DAILY_LIMIT_VERIFIED
+        if user.is_verified
+        else settings.DAILY_LIMIT_UNVERIFIED
+    )
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+
+    total_24h = (
+        db.query(models.Transaction)
+        .filter(
+            models.Transaction.user_id == user.id,
+            models.Transaction.transaction_type == "sent",
+            models.Transaction.status.in_(("pending", "completed")),
+            models.Transaction.created_at >= since,
+        )
+        .with_entities(models.Transaction.amount)
+        .all()
+    )
+    used = sum(row[0] for row in total_24h)
+
+    if used + amount > cap:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"Daily send limit exceeded. Used ${used:.2f} of "
+                f"${cap:.2f} in the last 24h."
+            ),
+        )
 
 
 def _find_zippie_recipient(
@@ -633,7 +693,9 @@ async def initiate_paynow_payment(
 async def paynow_webhook(request: Request, db: Session = Depends(get_db)):
     """Handle Paynow payment result webhook (unauthenticated).
 
-    Paynow POSTs form data with transaction results to this endpoint.
+    Paynow POSTs form data with transaction results. Webhooks may be retried
+    on network error — we dedup via `webhook_events(source, reference)` UNIQUE
+    before doing any ledger work.
     """
     form_data = await request.form()
     data = dict(form_data)
@@ -652,22 +714,57 @@ async def paynow_webhook(request: Request, db: Session = Depends(get_db)):
         f"Paynow webhook received: reference={reference}, status={paynow_status}"
     )
 
+    # Idempotency: insert the event row first. If a duplicate (source, reference)
+    # arrives (Paynow retry), the UNIQUE constraint raises IntegrityError and we
+    # short-circuit without re-processing. The insert happens in its own savepoint
+    # so a rollback on duplicate doesn't poison the outer session.
+    event_key = f"{reference}:{paynow_status}" if reference else ""
+    if event_key:
+        try:
+            with db.begin_nested():
+                db.add(
+                    models.WebhookEvent(
+                        source="paynow",
+                        reference=event_key,
+                        raw_payload=data,
+                    )
+                )
+        except IntegrityError:
+            logger.info(
+                f"Paynow webhook already processed (dedup): {event_key}"
+            )
+            return {"status": "ok", "deduped": True}
+
     # Extract transaction ID from reference (format: ZIPPIE-{id})
     try:
         tx_id = int(reference.replace("ZIPPIE-", ""))
     except (ValueError, AttributeError):
         logger.error(f"Invalid Paynow reference format: {reference}")
+        db.commit()
         return {"status": "ok"}
 
     transaction = db.query(models.Transaction).get(tx_id)
     if not transaction:
         logger.error(f"Transaction not found for Paynow reference: {reference}")
+        db.commit()
         return {"status": "ok"}
 
     if paynow_status == "paid":
         _complete_transaction(db, transaction)
     elif paynow_status in ("cancelled", "failed", "disputed"):
         _fail_transaction(db, transaction)
+
+    # Mark webhook processed
+    if event_key:
+        db.execute(
+            update(models.WebhookEvent)
+            .where(
+                models.WebhookEvent.source == "paynow",
+                models.WebhookEvent.reference == event_key,
+            )
+            .values(processed_at=datetime.now(timezone.utc))
+        )
+        db.commit()
 
     return {"status": "ok"}
 
@@ -730,4 +827,139 @@ async def check_paynow_status(
         status=transaction.status,
         paid=transaction.status == "completed",
         paynow_reference=paynow_reference,
+    )
+
+
+@router.post("/paynow/topup/initiate", response_model=PaynowInitiateResponse)
+async def initiate_topup(
+    request: PaynowTopupRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Top up a Zippie wallet from EcoCash / OneMoney / web card.
+
+    Creates a pending 'received' transaction with payment_method='paynow_topup'.
+    When Paynow confirms via webhook, _complete_transaction credits the wallet
+    (CREDIT direction in the ledger, since this is money arriving).
+    """
+    if not paynow_service.is_configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment gateway is not configured",
+        )
+
+    if request.amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Amount must be greater than 0",
+        )
+
+    valid_channels = ["ecocash", "onemoney", "web"]
+    if request.payment_channel not in valid_channels:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid payment channel. Must be one of: {valid_channels}",
+        )
+
+    if request.payment_channel != "web" and not request.phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number is required for mobile payments",
+        )
+
+    # Resolve target account — explicit account_id, else user's first active account
+    if request.account_id:
+        account = (
+            db.query(models.Account)
+            .filter(
+                models.Account.id == request.account_id,
+                models.Account.user_id == current_user.id,
+                models.Account.is_active,
+            )
+            .first()
+        )
+    else:
+        account = (
+            db.query(models.Account)
+            .filter(
+                models.Account.user_id == current_user.id,
+                models.Account.is_active,
+            )
+            .order_by(models.Account.id)
+            .first()
+        )
+
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active wallet found for top-up",
+        )
+
+    description = request.description or "Zippie wallet top-up"
+
+    transaction = models.Transaction(
+        user_id=current_user.id,
+        account_id=account.id,
+        transaction_type="received",
+        amount=request.amount,
+        currency=account.currency,
+        recipient=current_user.email,
+        sender=None,
+        description=description,
+        payment_method="paynow_topup",
+        status="pending",
+    )
+    db.add(transaction)
+    db.flush()  # get transaction.id
+
+    reference = f"ZIPPIE-{transaction.id}"
+
+    try:
+        if request.payment_channel == "web":
+            result = await asyncio.to_thread(
+                paynow_service.initiate_web_checkout,
+                reference,
+                current_user.email,
+                description,
+                request.amount,
+            )
+        else:
+            result = await asyncio.to_thread(
+                paynow_service.initiate_mobile_checkout,
+                reference,
+                current_user.email,
+                description,
+                request.amount,
+                request.phone_number,
+                request.payment_channel,
+            )
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        )
+
+    transaction.transaction_metadata = {
+        "paynow_reference": reference,
+        "poll_url": result.get("poll_url"),
+        "redirect_url": result.get("redirect_url"),
+        "instructions": result.get("instructions"),
+        "payment_channel": request.payment_channel,
+        "phone_number": request.phone_number,
+        "flow": "topup",
+    }
+    db.commit()
+
+    logger.info(
+        f"Topup initiated: user={current_user.email} amount={request.amount} "
+        f"channel={request.payment_channel} tx_id={transaction.id}"
+    )
+
+    return PaynowInitiateResponse(
+        transaction_id=transaction.id,
+        status="pending",
+        poll_url=result.get("poll_url"),
+        redirect_url=result.get("redirect_url"),
+        instructions=result.get("instructions"),
+        paynow_reference=reference,
     )

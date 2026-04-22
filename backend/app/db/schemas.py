@@ -103,6 +103,16 @@ class TransactionStatusResponse(BaseModel):
     paynow_reference: Optional[str] = None
 
 
+class PaynowTopupRequest(BaseModel):
+    """Top-up: pull money from EcoCash/OneMoney into a Zippie wallet."""
+
+    amount: float
+    payment_channel: str  # "ecocash", "onemoney", or "web"
+    phone_number: Optional[str] = None  # Required for ecocash/onemoney
+    account_id: Optional[int] = None  # Which wallet to credit (default: primary)
+    description: Optional[str] = None
+
+
 # Auth Schemas
 class Token(BaseModel):
     access_token: str

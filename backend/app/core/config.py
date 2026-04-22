@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     # Redis (Optional)
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # Risk controls
+    # Daily outgoing cap per user (sum of amounts, any currency, rolling 24h).
+    # Tiered by user.is_verified. Numbers are USD-equivalent; for multi-currency
+    # sums we treat 1:1 in the pilot and revisit once FX is live.
+    DAILY_LIMIT_UNVERIFIED: float = 200.0
+    DAILY_LIMIT_VERIFIED: float = 1000.0
+
     class Config:
         case_sensitive = True
         env_file = ".env"

@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -143,4 +144,29 @@ class LedgerEntry(Base):
         ),
     )
 
+
+class WebhookEvent(Base):
+    """Append-only log of inbound webhooks, with dedup on (source, reference).
+
+    Paynow retries webhooks on network errors — without dedup, a retried "paid"
+    webhook would credit a wallet twice. We insert a row atomically before
+    processing; the UNIQUE index makes duplicate inserts raise IntegrityError,
+    which the caller turns into a short-circuit "already processed" return.
+    """
+
+    __tablename__ = "webhook_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(String, nullable=False)  # 'paynow'
+    reference = Column(String, nullable=False)
+    raw_payload = Column(JSON, nullable=False)
+    received_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    processed_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("source", "reference", name="uq_webhook_source_reference"),
+        Index("ix_webhook_received_at", "received_at"),
+    )
 
