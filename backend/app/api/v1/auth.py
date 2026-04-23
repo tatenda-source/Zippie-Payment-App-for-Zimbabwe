@@ -12,11 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
-from app.core.security import (
-    create_access_token,
-    get_password_hash,
-    verify_password,
-)
+from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db import models
 from app.db.database import get_db
 from app.db.schemas import Token, UserCreate, UserResponse
@@ -40,9 +36,7 @@ def validate_password(password: str) -> bool:
     return True
 
 
-def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
-):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Get current authenticated user"""
     from app.core.security import decode_access_token
 
@@ -57,17 +51,13 @@ def get_current_user(
     email = payload.get("sub")
     user = db.query(models.User).filter(models.User.email == email).first()
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
 
 
 @router.post("/register", response_model=UserResponse)
 @limiter.limit("5/minute")
-async def register(
-    request: Request, user_data: UserCreate, db: Session = Depends(get_db)
-):
+async def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
     """Register a new user"""
     # Validate password strength
     if not validate_password(user_data.password):
@@ -100,10 +90,7 @@ async def register(
         # Check if user exists
         existing_user = (
             db.query(models.User)
-            .filter(
-                (models.User.email == user_data.email)
-                | (models.User.phone == user_data.phone)
-            )
+            .filter((models.User.email == user_data.email) | (models.User.phone == user_data.phone))
             .first()
         )
 
@@ -137,9 +124,7 @@ async def register(
         db.add(default_account)
         db.commit()
 
-        logger.info(
-            f"User registered: email={user_data.email}, user_id={db_user.id}"
-        )
+        logger.info(f"User registered: email={user_data.email}, user_id={db_user.id}")
         return db_user
     except HTTPException:
         db.rollback()
@@ -162,15 +147,9 @@ async def login(
 ):
     """Login and get access token"""
     # OAuth2PasswordRequestForm uses 'username' field for email
-    user = (
-        db.query(models.User)
-        .filter(models.User.email == form_data.username)
-        .first()
-    )
+    user = db.query(models.User).filter(models.User.email == form_data.username).first()
 
-    if not user or not verify_password(
-        form_data.password, user.hashed_password
-    ):
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -183,12 +162,8 @@ async def login(
             detail="User account is inactive",
         )
 
-    access_token_expires = timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
 
     return {"access_token": access_token, "token_type": "bearer"}
 

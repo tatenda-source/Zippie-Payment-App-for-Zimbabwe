@@ -8,10 +8,10 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
-    Numeric,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -44,12 +44,8 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    accounts = relationship(
-        "Account", back_populates="owner", cascade="all, delete-orphan"
-    )
-    transactions = relationship(
-        "Transaction", back_populates="user", cascade="all, delete-orphan"
-    )
+    accounts = relationship("Account", back_populates="owner", cascade="all, delete-orphan")
+    transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
 
 
 class Account(Base):
@@ -87,9 +83,7 @@ class Transaction(Base):
     recipient = Column(String, nullable=False, index=True)
     sender = Column(String, nullable=True, index=True)
     description = Column(Text, nullable=True)
-    status = Column(
-        String, default="pending", nullable=False
-    )  # completed, pending, failed
+    status = Column(String, default="pending", nullable=False)  # completed, pending, failed
     payment_method = Column(String, nullable=True)
     fee = Column(Numeric(18, 2), default=0)
     transaction_metadata = Column(JSON, nullable=True)  # Additional data
@@ -121,18 +115,12 @@ class LedgerEntry(Base):
     __tablename__ = "ledger_entries"
 
     id = Column(Integer, primary_key=True, index=True)
-    transaction_id = Column(
-        Integer, ForeignKey("transactions.id"), nullable=False, index=True
-    )
-    account_id = Column(
-        Integer, ForeignKey("accounts.id"), nullable=False, index=True
-    )
+    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=False, index=True)
+    account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False, index=True)
     amount = Column(Numeric(18, 2), nullable=False)
     direction = Column(String, nullable=False)  # 'debit' or 'credit'
     balance_after = Column(Numeric(18, 2), nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), index=True
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     # Relationships
     transaction = relationship("Transaction", back_populates="ledger_entries")
@@ -145,9 +133,7 @@ class LedgerEntry(Base):
             name="uq_ledger_tx_account_direction",
         ),
         CheckConstraint("amount > 0", name="ck_ledger_amount_positive"),
-        CheckConstraint(
-            "direction IN ('debit', 'credit')", name="ck_ledger_direction_valid"
-        ),
+        CheckConstraint("direction IN ('debit', 'credit')", name="ck_ledger_direction_valid"),
     )
 
 
@@ -166,9 +152,7 @@ class WebhookEvent(Base):
     source = Column(String, nullable=False)  # 'paynow'
     reference = Column(String, nullable=False)
     raw_payload = Column(JSON, nullable=False)
-    received_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    received_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     processed_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
@@ -187,6 +171,7 @@ class AuditEvent(Base):
     user must not erase their historical audit trail; the actor reference simply
     becomes anonymous. This is the compliance-correct behaviour.
     """
+
     __tablename__ = "audit_events"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -201,7 +186,9 @@ class AuditEvent(Base):
         index=True,
     )
     payload = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
 
 
 class IdempotencyKey(Base):
@@ -214,6 +201,7 @@ class IdempotencyKey(Base):
     FK is ON DELETE CASCADE: idempotency rows are ephemeral (24h TTL) and tied
     to a user session. If the user is deleted, their replay cache goes with them.
     """
+
     __tablename__ = "idempotency_keys"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -228,9 +216,10 @@ class IdempotencyKey(Base):
     path = Column(String, nullable=False, index=True)
     response_status = Column(Integer, nullable=False)
     response_body = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
 
     __table_args__ = (
         UniqueConstraint("key", "user_id", "path", name="uq_idempotency_user_path_key"),
     )
-

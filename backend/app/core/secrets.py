@@ -53,8 +53,7 @@ class AwsSecretsManagerProvider(SecretsProvider):
             import boto3  # type: ignore
         except ImportError as e:
             raise RuntimeError(
-                "boto3 is required for SECRETS_PROVIDER=aws. "
-                "Install with: pip install boto3"
+                "boto3 is required for SECRETS_PROVIDER=aws. " "Install with: pip install boto3"
             ) from e
 
         self._region = region or os.environ.get("AWS_REGION", "af-south-1")
@@ -100,9 +99,7 @@ def get_provider() -> SecretsProvider:
         prefix = os.environ.get("AWS_SECRETS_PREFIX", "zippie")
         _provider_singleton = AwsSecretsManagerProvider(prefix=prefix)
     else:
-        raise RuntimeError(
-            f"Unknown SECRETS_PROVIDER={kind!r}. Valid values: 'env', 'aws'."
-        )
+        raise RuntimeError(f"Unknown SECRETS_PROVIDER={kind!r}. Valid values: 'env', 'aws'.")
     return _provider_singleton
 
 

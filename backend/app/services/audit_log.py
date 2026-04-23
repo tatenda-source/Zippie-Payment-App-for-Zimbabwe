@@ -22,11 +22,13 @@ def record_event(
     payload: Optional[dict] = None,
 ) -> None:
     """Append one audit event. Caller owns the transaction — we don't commit."""
-    db.add(models.AuditEvent(
-        source=source,
-        event_type=event_type,
-        subject_type=subject_type,
-        subject_id=subject_id,
-        actor_user_id=actor_user_id,
-        payload=payload,
-    ))
+    db.add(
+        models.AuditEvent(
+            source=source,
+            event_type=event_type,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            actor_user_id=actor_user_id,
+            payload=payload,
+        )
+    )

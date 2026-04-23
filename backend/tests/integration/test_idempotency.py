@@ -73,9 +73,7 @@ class TestIdempotency:
     def test_no_header_works_normally(
         self, authenticated_client, test_account, db_session, test_user
     ):
-        r = authenticated_client.post(
-            "/api/v1/payments/transactions", json=self._tx_payload()
-        )
+        r = authenticated_client.post("/api/v1/payments/transactions", json=self._tx_payload())
         assert r.status_code == 200
 
         cached = db_session.query(models.IdempotencyKey).count()
@@ -101,9 +99,7 @@ class TestIdempotency:
         assert r.status_code == 400
         assert "idempotency" in r.json()["detail"].lower()
 
-    def test_same_key_different_users_no_collision(
-        self, client, db_session, test_user
-    ):
+    def test_same_key_different_users_no_collision(self, client, db_session, test_user):
         other = models.User(
             email="other@example.com",
             phone="+263700000500",

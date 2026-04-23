@@ -3,23 +3,24 @@ Pytest configuration and shared fixtures
 """
 import os
 
-# Set test environment BEFORE importing app.main (logging config reads LOG_FORMAT at import time)
+# Set test environment BEFORE importing app.main
+# (logging config reads LOG_FORMAT at import time).
 os.environ["ENVIRONMENT"] = "test"
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing"
 os.environ["LOG_FORMAT"] = "text"
 
-import pytest
-from faker import Faker
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+import pytest  # noqa: E402
+from faker import Faker  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
 
-from app.core.rate_limit import limiter
-from app.core.security import get_password_hash
-from app.db import models
-from app.db.database import Base, get_db
-from app.main import app
+from app.core.rate_limit import limiter  # noqa: E402
+from app.core.security import get_password_hash  # noqa: E402
+from app.db import models  # noqa: E402
+from app.db.database import Base, get_db  # noqa: E402
+from app.main import app  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -32,6 +33,7 @@ def _reset_rate_limiter():
     limiter.reset()
     yield
     limiter.reset()
+
 
 fake = Faker()
 
@@ -46,9 +48,7 @@ engine = create_engine(
 )
 
 # Create test session factory
-TestingSessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine
-)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 @pytest.fixture(scope="function")

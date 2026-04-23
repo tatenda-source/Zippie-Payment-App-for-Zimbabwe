@@ -43,9 +43,7 @@ class TestAuditLogInternalTransfer:
         tx_id = response.json()["id"]
 
         events = (
-            db_session.query(models.AuditEvent)
-            .filter(models.AuditEvent.subject_id == tx_id)
-            .all()
+            db_session.query(models.AuditEvent).filter(models.AuditEvent.subject_id == tx_id).all()
         )
         assert len(events) == 1
         ev = events[0]
@@ -80,9 +78,7 @@ class TestAuditLogPaynowFlow:
         assert response.json()["status"] == "pending"
 
         events = (
-            db_session.query(models.AuditEvent)
-            .filter(models.AuditEvent.subject_id == tx_id)
-            .all()
+            db_session.query(models.AuditEvent).filter(models.AuditEvent.subject_id == tx_id).all()
         )
         assert events == []
 
@@ -90,9 +86,7 @@ class TestAuditLogPaynowFlow:
         assert _complete_transaction(db_session, transaction) is True
 
         events = (
-            db_session.query(models.AuditEvent)
-            .filter(models.AuditEvent.subject_id == tx_id)
-            .all()
+            db_session.query(models.AuditEvent).filter(models.AuditEvent.subject_id == tx_id).all()
         )
         assert len(events) == 1
         ev = events[0]

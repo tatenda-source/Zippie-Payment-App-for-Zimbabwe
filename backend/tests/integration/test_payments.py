@@ -30,9 +30,7 @@ class TestPayments:
             "color": "#3b82f6",
         }
 
-        response = authenticated_client.post(
-            "/api/v1/payments/accounts", json=account_data
-        )
+        response = authenticated_client.post("/api/v1/payments/accounts", json=account_data)
 
         assert response.status_code == 200
         data = response.json()
@@ -49,9 +47,7 @@ class TestPayments:
             "account_type": "primary",
         }
 
-        response = authenticated_client.post(
-            "/api/v1/payments/accounts", json=account_data
-        )
+        response = authenticated_client.post("/api/v1/payments/accounts", json=account_data)
 
         assert response.status_code == 400
 
@@ -63,9 +59,7 @@ class TestPayments:
         transactions = response.json()
         assert isinstance(transactions, list)
 
-    def test_create_transaction_sent_to_non_zippie_user(
-        self, authenticated_client, test_account
-    ):
+    def test_create_transaction_sent_to_non_zippie_user(self, authenticated_client, test_account):
         """Sends to a non-Zippie recipient stay pending until Paynow confirms.
 
         The balance is NOT deducted at creation time — deduction happens in
@@ -163,11 +157,7 @@ class TestPayments:
         )
         db_session.add(recipient)
         # Cap account at $50 so a $100 send is over balance but under velocity cap.
-        acc = (
-            db_session.query(models.Account)
-            .filter(models.Account.id == test_account.id)
-            .first()
-        )
+        acc = db_session.query(models.Account).filter(models.Account.id == test_account.id).first()
         acc.balance = 50.0
         db_session.commit()
 
@@ -198,9 +188,7 @@ class TestPayments:
             "description": "Payment request",
         }
 
-        response = authenticated_client.post(
-            "/api/v1/payments/transactions", json=transaction_data
-        )
+        response = authenticated_client.post("/api/v1/payments/transactions", json=transaction_data)
 
         assert response.status_code == 200
         data = response.json()

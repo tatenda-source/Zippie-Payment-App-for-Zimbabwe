@@ -87,9 +87,7 @@ class TestLedgerInvariantsUnderFuzzing:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     @given(
-        balances=st.lists(
-            starting_balance_strategy, min_size=3, max_size=3
-        ),
+        balances=st.lists(starting_balance_strategy, min_size=3, max_size=3),
         ops=st.lists(op_strategy, max_size=20),
     )
     def test_reconciliation_stays_clean_under_random_transfer_sequences(
@@ -105,9 +103,7 @@ class TestLedgerInvariantsUnderFuzzing:
         db_session.query(models.User).delete()
         db_session.commit()
 
-        users_and_accounts = [
-            _bootstrap_user(db_session, i, balances[i]) for i in range(3)
-        ]
+        users_and_accounts = [_bootstrap_user(db_session, i, balances[i]) for i in range(3)]
         db_session.commit()
 
         for sender_idx, recipient_idx, amount_cents in ops:

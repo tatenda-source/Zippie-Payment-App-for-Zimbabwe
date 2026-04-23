@@ -4,7 +4,6 @@ Application Configuration
 
 from typing import List
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -47,8 +46,7 @@ class Settings(BaseSettings):
             return False
         if (
             self.ENVIRONMENT == "production"
-            and self.SECRET_KEY
-            == "your-secret-key-change-in-production-use-openssl-rand-hex-32"
+            and self.SECRET_KEY == "your-secret-key-change-in-production-use-openssl-rand-hex-32"
         ):
             return False
         return len(self.SECRET_KEY) >= 32

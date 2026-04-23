@@ -48,9 +48,7 @@ async def get_accounts(
     """Get user accounts"""
     accounts = (
         db.query(models.Account)
-        .filter(
-            models.Account.user_id == current_user.id, models.Account.is_active
-        )
+        .filter(models.Account.user_id == current_user.id, models.Account.is_active)
         .all()
     )
 
@@ -100,14 +98,10 @@ async def create_account(
         db.refresh(db_account)
 
         response_body = jsonable_encoder(AccountResponse.model_validate(db_account))
-        store_idempotency(
-            db, current_user, idempotency_key, request.url.path, 200, response_body
-        )
+        store_idempotency(db, current_user, idempotency_key, request.url.path, 200, response_body)
         db.commit()
 
-        logger.info(
-            f"Account created: user_id={current_user.id}, account_id={db_account.id}"
-        )
+        logger.info(f"Account created: user_id={current_user.id}, account_id={db_account.id}")
         return db_account
     except HTTPException:
         db.rollback()
@@ -158,10 +152,7 @@ async def create_transaction(
     if transaction_data.transaction_type not in valid_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Invalid transaction type. "
-                f"Must be one of: {', '.join(valid_types)}"
-            ),
+            detail=("Invalid transaction type. " f"Must be one of: {', '.join(valid_types)}"),
         )
 
     # Validate amount
@@ -255,9 +246,7 @@ async def create_transaction(
             amount=transaction_data.amount,
             currency=transaction_data.currency,
             recipient=transaction_data.recipient,
-            sender=current_user.email
-            if transaction_data.transaction_type == "sent"
-            else None,
+            sender=current_user.email if transaction_data.transaction_type == "sent" else None,
             description=transaction_data.description,
             payment_method=transaction_data.payment_method,
             status=transaction_status,
@@ -267,12 +256,8 @@ async def create_transaction(
         db.flush()
         db.refresh(db_transaction)
 
-        response_body = jsonable_encoder(
-            TransactionResponse.model_validate(db_transaction)
-        )
-        store_idempotency(
-            db, current_user, idempotency_key, request.url.path, 200, response_body
-        )
+        response_body = jsonable_encoder(TransactionResponse.model_validate(db_transaction))
+        store_idempotency(db, current_user, idempotency_key, request.url.path, 200, response_body)
         db.commit()
 
         logger.info(
@@ -327,9 +312,7 @@ async def get_balance(
     """Get total balance across all accounts"""
     accounts = (
         db.query(models.Account)
-        .filter(
-            models.Account.user_id == current_user.id, models.Account.is_active
-        )
+        .filter(models.Account.user_id == current_user.id, models.Account.is_active)
         .all()
     )
 
@@ -506,9 +489,7 @@ def _enforce_velocity_limit(db: Session, user: models.User, amount):
     until FX is live.
     """
     cap = _to_decimal(
-        settings.DAILY_LIMIT_VERIFIED
-        if user.is_verified
-        else settings.DAILY_LIMIT_UNVERIFIED
+        settings.DAILY_LIMIT_VERIFIED if user.is_verified else settings.DAILY_LIMIT_UNVERIFIED
     )
     amount_dec = _to_decimal(amount)
     since = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -530,15 +511,12 @@ def _enforce_velocity_limit(db: Session, user: models.User, amount):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(
-                f"Daily send limit exceeded. Used ${used:.2f} of "
-                f"${cap:.2f} in the last 24h."
+                f"Daily send limit exceeded. Used ${used:.2f} of " f"${cap:.2f} in the last 24h."
             ),
         )
 
 
-def _find_zippie_recipient(
-    db: Session, recipient_identifier: str
-) -> Optional[models.User]:
+def _find_zippie_recipient(db: Session, recipient_identifier: str) -> Optional[models.User]:
     """Look up a Zippie user by email or phone.
 
     Returns the User or None if the identifier doesn't match any Zippie user.
@@ -769,9 +747,7 @@ async def initiate_paynow_payment(
     )
 
     if not transaction:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
 
     if transaction.status != "pending":
         raise HTTPException(
@@ -815,9 +791,7 @@ async def initiate_paynow_payment(
                 request.payment_channel,
             )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     # Store Paynow metadata on the transaction
     transaction.transaction_metadata = {
@@ -866,16 +840,12 @@ async def paynow_webhook(request: Request, db: Session = Depends(get_db)):
     # Validate hash
     if not paynow_service.validate_webhook(data):
         logger.warning("Paynow webhook received with invalid hash")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid hash"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid hash")
 
     reference = data.get("reference", "")
     paynow_status = data.get("status", "").lower()
 
-    logger.info(
-        f"Paynow webhook received: reference={reference}, status={paynow_status}"
-    )
+    logger.info(f"Paynow webhook received: reference={reference}, status={paynow_status}")
 
     # Idempotency: insert the event row first. If a duplicate (source, reference)
     # arrives (Paynow retry), the UNIQUE constraint raises IntegrityError and we
@@ -893,9 +863,7 @@ async def paynow_webhook(request: Request, db: Session = Depends(get_db)):
                     )
                 )
         except IntegrityError:
-            logger.info(
-                f"Paynow webhook already processed (dedup): {event_key}"
-            )
+            logger.info(f"Paynow webhook already processed (dedup): {event_key}")
             return {"status": "ok", "deduped": True}
 
     # Extract transaction ID from reference. New format: ZIPPIE-{uuid12}-{id}.
@@ -953,9 +921,7 @@ async def check_paynow_status(
     )
 
     if not transaction:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
 
     metadata = transaction.transaction_metadata or {}
     paynow_reference = metadata.get("paynow_reference")
@@ -973,9 +939,7 @@ async def check_paynow_status(
     poll_url = metadata.get("poll_url")
     if poll_url and paynow_service.is_configured:
         try:
-            result = await asyncio.to_thread(
-                paynow_service.check_status, poll_url
-            )
+            result = await asyncio.to_thread(paynow_service.check_status, poll_url)
 
             if result["paid"]:
                 _complete_transaction(db, transaction)
@@ -1109,9 +1073,7 @@ async def initiate_topup(
             )
     except ValueError as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     transaction.transaction_metadata = {
         "paynow_reference": reference,

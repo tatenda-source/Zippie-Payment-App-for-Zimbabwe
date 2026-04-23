@@ -4,10 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.api.v1.payments import (
-    _build_paynow_reference,
-    _parse_tx_id_from_reference,
-)
+from app.api.v1.payments import _build_paynow_reference, _parse_tx_id_from_reference
 from app.core.security import get_password_hash
 from app.db import models
 from app.services.reconciliation import run_reconciliation
@@ -25,9 +22,7 @@ class TestReconciliationService:
         assert report.account_violations == []
         assert report.unbalanced_internal == []
 
-    def test_account_without_ledger_entries_but_zero_balance_is_clean(
-        self, db_session, test_user
-    ):
+    def test_account_without_ledger_entries_but_zero_balance_is_clean(self, db_session, test_user):
         account = models.Account(
             user_id=test_user.id,
             name="Empty Wallet",
@@ -41,9 +36,7 @@ class TestReconciliationService:
         assert report.invariant_ok
         assert report.account_count == 1
 
-    def test_account_balance_matching_ledger_entries_is_clean(
-        self, db_session, test_user
-    ):
+    def test_account_balance_matching_ledger_entries_is_clean(self, db_session, test_user):
         """$100 credit + $30 debit → balance should be $70, no drift."""
         account = models.Account(
             user_id=test_user.id,
@@ -101,8 +94,7 @@ class TestReconciliationService:
 
         report = run_reconciliation(db_session)
         assert report.invariant_ok, (
-            f"Expected clean invariant. violations="
-            f"{report.account_violations}"
+            f"Expected clean invariant. violations=" f"{report.account_violations}"
         )
         assert report.total_balance == Decimal("70.00")
         assert report.ledger_credits_total == Decimal("100.00")
@@ -132,9 +124,7 @@ class TestReconciliationService:
         assert violation.ledger_net == Decimal(0)
         assert violation.drift == Decimal("150.00")
 
-    def test_unbalanced_internal_transfer_is_detected(
-        self, db_session, test_user
-    ):
+    def test_unbalanced_internal_transfer_is_detected(self, db_session, test_user):
         """Internal Zippie tx with only a debit (no credit) should be flagged."""
         account = models.Account(
             user_id=test_user.id,
@@ -194,11 +184,7 @@ class TestReconciliationEndToEnd:
         # In production this credit would be written by the top-up flow;
         # here we forge it directly so the invariant (balance == ledger_net)
         # holds from the start of the test.
-        acc = (
-            db_session.query(models.Account)
-            .filter(models.Account.id == test_account.id)
-            .first()
-        )
+        acc = db_session.query(models.Account).filter(models.Account.id == test_account.id).first()
         acc.balance = Decimal("500.00")
 
         bootstrap_tx = models.Transaction(
@@ -255,14 +241,10 @@ class TestReconciliationEndToEnd:
         # Balances should be sender: 500 - 150 = 350, recipient: 150
         db_session.expire_all()
         sender_acc = (
-            db_session.query(models.Account)
-            .filter(models.Account.id == test_account.id)
-            .first()
+            db_session.query(models.Account).filter(models.Account.id == test_account.id).first()
         )
         recipient_acc = (
-            db_session.query(models.Account)
-            .filter(models.Account.user_id == recipient.id)
-            .first()
+            db_session.query(models.Account).filter(models.Account.user_id == recipient.id).first()
         )
         assert sender_acc.balance == Decimal("350.00")
         assert recipient_acc.balance == Decimal("150.00")
@@ -289,9 +271,7 @@ class TestReconciliationEndToEnd:
 class TestAdminGate:
     """Admin endpoint authorization."""
 
-    def test_reconciliation_requires_admin_allowlist(
-        self, authenticated_client
-    ):
+    def test_reconciliation_requires_admin_allowlist(self, authenticated_client):
         """Default empty ADMIN_EMAILS → everyone is denied (fail-closed)."""
         response = authenticated_client.get("/api/v1/admin/reconciliation")
         assert response.status_code == 403
@@ -341,7 +321,7 @@ class TestPaynowReferenceParsing:
         assert ref.startswith("ZIPPIE-")
         assert ref.endswith("-42")
         # The uuid segment must be long enough to be unguessable
-        middle = ref[len("ZIPPIE-"): -len("-42")]
+        middle = ref[len("ZIPPIE-") : -len("-42")]
         assert len(middle) >= 8
         assert _parse_tx_id_from_reference(ref) == 42
 

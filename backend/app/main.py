@@ -3,7 +3,6 @@ Zippie - P2P Payment Platform for Zimbabwe
 """
 
 import logging
-import os
 import sys
 from datetime import datetime, timezone
 
@@ -39,9 +38,7 @@ if settings.LOG_FORMAT == "json":
         )
     )
 else:
-    _handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    )
+    _handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
 _root.addHandler(_handler)
 _root.setLevel(_log_level)
 logger = logging.getLogger(__name__)

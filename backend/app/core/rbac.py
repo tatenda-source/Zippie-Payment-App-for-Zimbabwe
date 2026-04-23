@@ -66,9 +66,7 @@ def require_any_admin(
     allowlist = settings.admin_emails_list
     if allowlist and current_user.email.lower() in allowlist:
         return current_user
-    logger.warning(
-        f"Admin access denied for {current_user.email} (role={current_user.role})"
-    )
+    logger.warning(f"Admin access denied for {current_user.email} (role={current_user.role})")
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Not authorized",

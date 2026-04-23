@@ -93,9 +93,7 @@ class PaynowService:
 
         valid_methods = ["ecocash", "onemoney"]
         if method not in valid_methods:
-            raise ValueError(
-                f"Invalid mobile method '{method}'. Must be one of: {valid_methods}"
-            )
+            raise ValueError(f"Invalid mobile method '{method}'. Must be one of: {valid_methods}")
 
         payment = self._client.create_payment(reference, email)
         payment.add(description or "Zippie Payment", amount)
@@ -160,9 +158,7 @@ class PaynowService:
 
         hash_string += settings.PAYNOW_INTEGRATION_KEY
 
-        calculated_hash = hashlib.sha512(
-            hash_string.encode("utf-8")
-        ).hexdigest().upper()
+        calculated_hash = hashlib.sha512(hash_string.encode("utf-8")).hexdigest().upper()
 
         return calculated_hash == received_hash
 

@@ -8,7 +8,6 @@ correct — no lost updates, no overdrafts, no phantom ledger entries.
 If this test ever fails, the financial core is broken. Do not ship.
 """
 
-import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
@@ -49,11 +48,7 @@ def test_users(session_factory):
         # bulk-clear them first. accounts/transactions DO cascade via the ORM
         # relationship, so session.delete(user) handles those naturally.
         stale_emails = ["sender-ctest@zippie.test", "recipient-ctest@zippie.test"]
-        stale = (
-            session.query(models.User)
-            .filter(models.User.email.in_(stale_emails))
-            .all()
-        )
+        stale = session.query(models.User).filter(models.User.email.in_(stale_emails)).all()
         stale_user_ids = [u.id for u in stale]
         if stale_user_ids:
             session.query(models.AuditEvent).filter(
@@ -112,9 +107,7 @@ def test_users(session_factory):
         # + accounts, then users via session.delete (which ORM-cascades
         # accounts/transactions — belt-and-suspenders).
         session.query(models.LedgerEntry).filter(
-            models.LedgerEntry.account_id.in_(
-                [sender_account.id, recipient_account.id]
-            )
+            models.LedgerEntry.account_id.in_([sender_account.id, recipient_account.id])
         ).delete(synchronize_session=False)
         session.query(models.AuditEvent).filter(
             models.AuditEvent.actor_user_id.in_([sender.id, recipient.id])
@@ -140,9 +133,7 @@ def _run_single_transfer(session_factory, test_users, amount):
     try:
         sender = session.query(models.User).get(test_users["sender_id"])
         recipient = session.query(models.User).get(test_users["recipient_id"])
-        sender_account = session.query(models.Account).get(
-            test_users["sender_account_id"]
-        )
+        sender_account = session.query(models.Account).get(test_users["sender_account_id"])
         try:
             _internal_transfer(
                 db=session,
@@ -188,12 +179,8 @@ def test_concurrent_transfers_preserve_balance(session_factory, test_users):
     # Verify final state
     session = session_factory()
     try:
-        sender_account = session.query(models.Account).get(
-            test_users["sender_account_id"]
-        )
-        recipient_account = session.query(models.Account).get(
-            test_users["recipient_account_id"]
-        )
+        sender_account = session.query(models.Account).get(test_users["sender_account_id"])
+        recipient_account = session.query(models.Account).get(test_users["recipient_account_id"])
 
         expected_successes = int(test_users["initial_sender_balance"] / AMOUNT)
 
@@ -236,15 +223,15 @@ def test_concurrent_transfers_preserve_balance(session_factory, test_users):
             .scalar()
         )
 
-        assert sender_debits == expected_successes * AMOUNT, (
-            f"Sum of debits ({sender_debits}) != expected ({expected_successes * AMOUNT})"
-        )
-        assert recipient_credits == expected_successes * AMOUNT, (
-            f"Sum of credits ({recipient_credits}) != expected ({expected_successes * AMOUNT})"
-        )
-        assert sender_debits == recipient_credits, (
-            f"Ledger imbalance: debits={sender_debits}, credits={recipient_credits}"
-        )
+        assert (
+            sender_debits == expected_successes * AMOUNT
+        ), f"Sum of debits ({sender_debits}) != expected ({expected_successes * AMOUNT})"
+        assert (
+            recipient_credits == expected_successes * AMOUNT
+        ), f"Sum of credits ({recipient_credits}) != expected ({expected_successes * AMOUNT})"
+        assert (
+            sender_debits == recipient_credits
+        ), f"Ledger imbalance: debits={sender_debits}, credits={recipient_credits}"
 
         # Assert: number of transaction records matches successes
         # (each internal transfer creates 2: one 'sent', one 'received')
@@ -255,9 +242,9 @@ def test_concurrent_transfers_preserve_balance(session_factory, test_users):
             )
             .count()
         )
-        assert tx_count == expected_successes * 2, (
-            f"Expected {expected_successes * 2} transactions, got {tx_count}"
-        )
+        assert (
+            tx_count == expected_successes * 2
+        ), f"Expected {expected_successes * 2} transactions, got {tx_count}"
     finally:
         session.close()
 
@@ -285,16 +272,14 @@ def test_concurrent_transfers_partial_overspend(session_factory, test_users):
 
     session = session_factory()
     try:
-        sender_account = session.query(models.Account).get(
-            test_users["sender_account_id"]
-        )
+        sender_account = session.query(models.Account).get(test_users["sender_account_id"])
 
-        assert successes == expected_successes, (
-            f"Expected {expected_successes} successes, got {successes}"
-        )
-        assert insufficient == expected_failures, (
-            f"Expected {expected_failures} failures, got {insufficient}"
-        )
+        assert (
+            successes == expected_successes
+        ), f"Expected {expected_successes} successes, got {successes}"
+        assert (
+            insufficient == expected_failures
+        ), f"Expected {expected_failures} failures, got {insufficient}"
         assert sender_account.balance == 0.00, (
             f"Sender balance should be exactly 0, got {sender_account.balance}. "
             f"This means the system allowed an overdraft."

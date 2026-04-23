@@ -19,9 +19,7 @@ class TestFeatureFlags:
     def test_is_enabled_unknown_flag_returns_false(self):
         assert features.is_enabled("totally_not_a_real_flag") is False
 
-    def test_topup_initiate_returns_503_when_disabled(
-        self, authenticated_client, monkeypatch
-    ):
+    def test_topup_initiate_returns_503_when_disabled(self, authenticated_client, monkeypatch):
         monkeypatch.setattr(settings, "FEATURE_TOPUP", False)
 
         response = authenticated_client.post(
@@ -36,9 +34,7 @@ class TestFeatureFlags:
         assert response.status_code == 503
         assert response.json()["detail"] == "Feature 'topup' is disabled"
 
-    def test_topup_initiate_reaches_handler_when_enabled(
-        self, authenticated_client, monkeypatch
-    ):
+    def test_topup_initiate_reaches_handler_when_enabled(self, authenticated_client, monkeypatch):
         # Flag on → gate passes. Whatever happens next (handler error or success),
         # the response must NOT be the feature-flag 503.
         monkeypatch.setattr(settings, "FEATURE_TOPUP", True)

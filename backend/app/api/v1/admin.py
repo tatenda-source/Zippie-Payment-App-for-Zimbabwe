@@ -117,9 +117,7 @@ def _serialize_report(r: ReconciliationReport) -> ReconciliationResponse:
         global_drift=r.global_drift,
         per_currency=r.per_currency,
         account_violations=[_serialize_drift(d) for d in r.account_violations],
-        unbalanced_internal=[
-            _serialize_unbalanced(u) for u in r.unbalanced_internal
-        ],
+        unbalanced_internal=[_serialize_unbalanced(u) for u in r.unbalanced_internal],
     )
 
 

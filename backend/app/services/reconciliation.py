@@ -100,22 +100,16 @@ def run_reconciliation(db: Session) -> ReconciliationReport:
     """Compute the full reconciliation report in one read-only pass."""
     from datetime import datetime, timezone
 
-    report = ReconciliationReport(
-        timestamp=datetime.now(timezone.utc).isoformat()
-    )
+    report = ReconciliationReport(timestamp=datetime.now(timezone.utc).isoformat())
 
     # 1. Per-account drift check
     # Pull ledger net (credits - debits) per account in a single query.
     credits_col = func.coalesce(
-        func.sum(
-            models.LedgerEntry.amount
-        ).filter(models.LedgerEntry.direction == "credit"),
+        func.sum(models.LedgerEntry.amount).filter(models.LedgerEntry.direction == "credit"),
         0,
     )
     debits_col = func.coalesce(
-        func.sum(
-            models.LedgerEntry.amount
-        ).filter(models.LedgerEntry.direction == "debit"),
+        func.sum(models.LedgerEntry.amount).filter(models.LedgerEntry.direction == "debit"),
         0,
     )
 
@@ -177,9 +171,7 @@ def run_reconciliation(db: Session) -> ReconciliationReport:
                 )
             )
 
-    report.ledger_net = (
-        report.ledger_credits_total - report.ledger_debits_total
-    )
+    report.ledger_net = report.ledger_credits_total - report.ledger_debits_total
     report.global_drift = report.total_balance - report.ledger_net
     report.per_currency = {
         ccy: {
@@ -207,9 +199,7 @@ def run_reconciliation(db: Session) -> ReconciliationReport:
         db.query(
             models.Transaction.id,
             func.coalesce(
-                func.sum(models.LedgerEntry.amount).filter(
-                    models.LedgerEntry.direction == "debit"
-                ),
+                func.sum(models.LedgerEntry.amount).filter(models.LedgerEntry.direction == "debit"),
                 0,
             ).label("debit_total"),
             func.coalesce(

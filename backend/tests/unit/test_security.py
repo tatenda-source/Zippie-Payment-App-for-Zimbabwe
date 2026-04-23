@@ -95,4 +95,3 @@ class TestJWTTokens:
 
         # Note: Testing actual expiration would require waiting,
         # which is better suited for integration tests
-

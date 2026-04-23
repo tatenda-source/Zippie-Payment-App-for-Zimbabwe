@@ -4,7 +4,8 @@ Pattern:
   1. Client sends `X-Idempotency-Key: <uuid>` with POST.
   2. Handler calls `check_idempotency(db, user, key, path)` FIRST.
   3. If cached: returns the cached response (status + body).
-  4. If not cached: handler does its work, then calls `store_idempotency(db, user, key, path, status, body)` before returning.
+  4. If not cached: handler does its work, then calls
+     `store_idempotency(db, user, key, path, status, body)` before returning.
 """
 
 from datetime import datetime, timedelta, timezone

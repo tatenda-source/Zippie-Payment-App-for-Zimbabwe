@@ -11,7 +11,6 @@ from faker import Faker
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.v1.auth import get_current_user
 from app.core.rbac import VALID_ROLES, require_any_admin, require_role
 from app.core.security import get_password_hash
 from app.db import models
@@ -72,9 +71,7 @@ def _rbac_app(db_session):
 @pytest.mark.integration
 class TestValidRoles:
     def test_canonical_set(self):
-        assert VALID_ROLES == frozenset(
-            {"user", "admin", "support", "ops", "finance"}
-        )
+        assert VALID_ROLES == frozenset({"user", "admin", "support", "ops", "finance"})
 
     def test_require_role_rejects_unknown_role_at_definition(self):
         with pytest.raises(ValueError):
@@ -88,9 +85,7 @@ class TestRequireRole:
         token = _login(client, user.email)
 
         with TestClient(_rbac_app(db_session)) as tc:
-            r = tc.get(
-                "/admin-only", headers={"Authorization": f"Bearer {token}"}
-            )
+            r = tc.get("/admin-only", headers={"Authorization": f"Bearer {token}"})
         assert r.status_code == 403
 
     def test_200_when_role_matches(self, client, db_session):
@@ -98,9 +93,7 @@ class TestRequireRole:
         token = _login(client, user.email)
 
         with TestClient(_rbac_app(db_session)) as tc:
-            r = tc.get(
-                "/admin-only", headers={"Authorization": f"Bearer {token}"}
-            )
+            r = tc.get("/admin-only", headers={"Authorization": f"Bearer {token}"})
         assert r.status_code == 200
         assert r.json()["role"] == "admin"
 
@@ -116,9 +109,7 @@ class TestRequireRole:
         assert r.status_code == 200
         assert r.json()["role"] == "ops"
 
-    def test_no_implicit_hierarchy_admin_not_granted_by_ops_endpoint_only(
-        self, client, db_session
-    ):
+    def test_no_implicit_hierarchy_admin_not_granted_by_ops_endpoint_only(self, client, db_session):
         """require_role("ops") must NOT grant admin. Exact-match semantics."""
         user = _make_user(db_session, role="admin")
         token = _login(client, user.email)
@@ -134,28 +125,20 @@ class TestRequireRole:
 
         app.dependency_overrides[get_db] = override_get_db
         with TestClient(app) as tc:
-            r = tc.get(
-                "/ops-only", headers={"Authorization": f"Bearer {token}"}
-            )
+            r = tc.get("/ops-only", headers={"Authorization": f"Bearer {token}"})
         assert r.status_code == 403
 
 
 @pytest.mark.integration
 class TestRequireAnyAdmin:
-    def test_allowlist_bootstrap_path(
-        self, client, db_session, monkeypatch
-    ):
+    def test_allowlist_bootstrap_path(self, client, db_session, monkeypatch):
         """Email in ADMIN_EMAILS grants admin even when role=='user'."""
         user = _make_user(db_session, role="user")
-        monkeypatch.setattr(
-            "app.core.config.settings.ADMIN_EMAILS", user.email
-        )
+        monkeypatch.setattr("app.core.config.settings.ADMIN_EMAILS", user.email)
         token = _login(client, user.email)
 
         with TestClient(_rbac_app(db_session)) as tc:
-            r = tc.get(
-                "/any-admin", headers={"Authorization": f"Bearer {token}"}
-            )
+            r = tc.get("/any-admin", headers={"Authorization": f"Bearer {token}"})
         assert r.status_code == 200
 
     def test_role_path(self, client, db_session, monkeypatch):
@@ -168,9 +151,7 @@ class TestRequireAnyAdmin:
         token = _login(client, user.email)
 
         with TestClient(_rbac_app(db_session)) as tc:
-            r = tc.get(
-                "/any-admin", headers={"Authorization": f"Bearer {token}"}
-            )
+            r = tc.get("/any-admin", headers={"Authorization": f"Bearer {token}"})
         assert r.status_code == 200
 
     def test_403_when_neither(self, client, db_session, monkeypatch):
@@ -182,9 +163,7 @@ class TestRequireAnyAdmin:
         token = _login(client, user.email)
 
         with TestClient(_rbac_app(db_session)) as tc:
-            r = tc.get(
-                "/any-admin", headers={"Authorization": f"Bearer {token}"}
-            )
+            r = tc.get("/any-admin", headers={"Authorization": f"Bearer {token}"})
         assert r.status_code == 403
 
 
@@ -199,9 +178,7 @@ class TestExistingAdminEndpointsStillWork:
         self, authenticated_client, test_user, monkeypatch
     ):
         assert test_user.role == "user"
-        monkeypatch.setattr(
-            "app.core.config.settings.ADMIN_EMAILS", test_user.email
-        )
+        monkeypatch.setattr("app.core.config.settings.ADMIN_EMAILS", test_user.email)
         r = authenticated_client.get("/api/v1/admin/reconciliation")
         assert r.status_code == 200
 
@@ -209,17 +186,13 @@ class TestExistingAdminEndpointsStillWork:
         self, authenticated_client, test_user, monkeypatch
     ):
         assert test_user.role == "user"
-        monkeypatch.setattr(
-            "app.core.config.settings.ADMIN_EMAILS", test_user.email
-        )
+        monkeypatch.setattr("app.core.config.settings.ADMIN_EMAILS", test_user.email)
         r = authenticated_client.get("/api/v1/admin/health/ledger")
         assert r.status_code == 200
 
     def test_reconciliation_denied_when_neither_allowlist_nor_role(
         self, authenticated_client, test_user, monkeypatch
     ):
-        monkeypatch.setattr(
-            "app.core.config.settings.ADMIN_EMAILS", ""
-        )
+        monkeypatch.setattr("app.core.config.settings.ADMIN_EMAILS", "")
         r = authenticated_client.get("/api/v1/admin/reconciliation")
         assert r.status_code == 403
