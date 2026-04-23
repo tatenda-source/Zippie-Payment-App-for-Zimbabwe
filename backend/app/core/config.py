@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     PROJECT_NAME: str = "Zippie Payment Platform"
+    APP_VERSION: str = "0.1.0"
+
+    # Observability
+    SENTRY_DSN: str = ""
+    LOG_FORMAT: str = "json"
 
     # Database
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/zippie_db"

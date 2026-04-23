@@ -3,6 +3,11 @@ Pytest configuration and shared fixtures
 """
 import os
 
+# Set test environment BEFORE importing app.main (logging config reads LOG_FORMAT at import time)
+os.environ["ENVIRONMENT"] = "test"
+os.environ["SECRET_KEY"] = "test-secret-key-for-testing"
+os.environ["LOG_FORMAT"] = "text"
+
 import pytest
 from faker import Faker
 from fastapi.testclient import TestClient
@@ -14,10 +19,6 @@ from app.core.security import get_password_hash
 from app.db import models
 from app.db.database import Base, get_db
 from app.main import app
-
-# Set test environment before importing app
-os.environ["ENVIRONMENT"] = "test"
-os.environ["SECRET_KEY"] = "test-secret-key-for-testing"
 
 fake = Faker()
 

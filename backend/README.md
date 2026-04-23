@@ -23,6 +23,20 @@ uvicorn app.main:app --reload --port 8000
 
 Docs: http://localhost:8000/api/docs.
 
+## Migrations
+
+Alembic manages schema changes. `DATABASE_URL` from `.env` is picked up automatically.
+
+```bash
+alembic upgrade head                              # apply pending migrations
+alembic revision --autogenerate -m "add X"        # diff models vs DB, write migration
+alembic stamp 0001_baseline                       # mark an existing DB at the baseline
+```
+
+On a DB that predates Alembic (schema created by `Base.metadata.create_all`), run
+`alembic stamp 0001_baseline` once to set the starting point, then use `upgrade head`
+for every subsequent change.
+
 ## Project layout
 
 ```
@@ -47,6 +61,13 @@ pytest tests/unit/test_security.py
 - **Internal P2P is atomic** — `_internal_transfer` in `api/v1/payments.py` locks sender + recipient accounts in ID order (deadlock-safe), re-reads balance under the lock, writes a balanced DR/CR pair, commits.
 - **Paynow webhooks** — `/payments/paynow/webhook` validates SHA512 hash before processing. Reference format: `ZIPPIE-{tx_id}`.
 - **Float model** — see `../docs/ARCHITECTURE.md`. TL;DR: Paynow only at edges (top-up, cash-out); everything else hits the ledger.
+
+## Observability
+
+- `SENTRY_DSN` — optional. Empty string disables Sentry entirely; set the DSN to enable error capture. Wrapped in `try/except ImportError` so the app runs even if `sentry-sdk` is uninstalled.
+- `APP_VERSION` — appears in `/health` responses and is sent as the `release` tag to Sentry.
+- `LOG_FORMAT` — `json` (default, structured stdout for prod log aggregators) or `text` (plain formatter for local dev and tests). Set to `text` in `tests/conftest.py`.
+- `/health` now returns `version`, `environment`, and an ISO 8601 UTC `timestamp` alongside the existing `status`, `database`, and `services` keys — useful for deploy verification and uptime probes.
 
 ## Environment
 

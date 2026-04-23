@@ -4,6 +4,8 @@ Zippie - P2P Payment Platform for Zimbabwe
 
 import logging
 import os
+import sys
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -17,14 +19,47 @@ from app.db.database import Base, engine
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO if settings.DEBUG else logging.WARNING,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Configure logging — structured JSON in prod, plain text for dev/tests.
+_log_level = logging.INFO if settings.DEBUG else logging.WARNING
+_root = logging.getLogger()
+for _h in list(_root.handlers):
+    _root.removeHandler(_h)
+_handler = logging.StreamHandler(sys.stdout)
+if settings.LOG_FORMAT == "json":
+    from pythonjsonlogger import jsonlogger
+
+    _handler.setFormatter(
+        jsonlogger.JsonFormatter(
+            "%(asctime)s %(levelname)s %(name)s %(message)s %(pathname)s %(lineno)d",
+            rename_fields={"asctime": "timestamp", "levelname": "level"},
+        )
+    )
+else:
+    _handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+_root.addHandler(_handler)
+_root.setLevel(_log_level)
 logger = logging.getLogger(__name__)
 
-# Create database tables
+# Sentry — optional. Empty DSN = disabled. Missing package = no-op.
+if settings.SENTRY_DSN:
+    try:
+        import sentry_sdk
+
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            release=settings.APP_VERSION,
+            environment=settings.ENVIRONMENT,
+            traces_sample_rate=0.1,
+        )
+    except ImportError:
+        logger.warning("sentry-sdk not installed; skipping Sentry init")
+
+# Create database tables.
+# TODO: once Alembic is the source of truth in all envs (prod + CI),
+# drop this call and rely on `alembic upgrade head` at deploy time.
+# Tests still lean on create_all against in-memory SQLite.
 try:
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables created/verified successfully")
@@ -92,6 +127,9 @@ async def health_check():
         "services": {
             "p2p": "operational",
         },
+        "version": settings.APP_VERSION,
+        "environment": settings.ENVIRONMENT,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
