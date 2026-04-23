@@ -138,6 +138,7 @@ backend/.coverage
 backend/coverage.xml
 backend/htmlcov/
 .pytest_cache/
+backend/.hypothesis/
 backend/*.sqlite
 
 # IDE
