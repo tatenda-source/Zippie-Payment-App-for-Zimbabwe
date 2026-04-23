@@ -17,13 +17,13 @@ import logging
 from decimal import Decimal
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
-from app.core.config import settings
 from app.core.rate_limit import limiter
+from app.core.rbac import require_any_admin
 from app.db import models
 from app.db.database import get_db
 from app.services.audit_log import record_event
@@ -41,23 +41,14 @@ router = APIRouter()
 def require_admin(
     current_user: models.User = Depends(get_current_user),
 ) -> models.User:
-    """Auth dependency: current user's email must be in ADMIN_EMAILS."""
-    allowlist = settings.admin_emails_list
-    if not allowlist:
-        # Fail closed: no one is admin unless ADMIN_EMAILS is explicitly set.
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access is not configured on this environment",
-        )
-    if current_user.email not in allowlist:
-        logger.warning(
-            f"Admin access denied for {current_user.email}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized",
-        )
-    return current_user
+    """Auth dependency for admin endpoints.
+
+    Signature preserved for backwards compatibility; delegates to
+    rbac.require_any_admin, which accepts EITHER role=='admin' OR email in
+    settings.ADMIN_EMAILS. The allowlist remains the bootstrap path until
+    every admin user has role='admin' set in the DB.
+    """
+    return require_any_admin(current_user)
 
 
 class AccountDriftResponse(BaseModel):

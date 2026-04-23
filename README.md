@@ -5,6 +5,21 @@
 > See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the float model, correctness guarantees, and risk controls.
 > See [`docs/VC_ANALYSIS.md`](docs/VC_ANALYSIS.md) for the strategic / GTM deep-dive.
 
+## CI
+
+![backend-ci](https://github.com/OWNER/REPO/actions/workflows/backend-ci.yml/badge.svg)
+![frontend-ci](https://github.com/OWNER/REPO/actions/workflows/frontend-ci.yml/badge.svg)
+
+Every push and PR against `main` runs lint, type-check, and test jobs. Backend: black / isort / flake8 / mypy (advisory) / pytest with coverage. Frontend: eslint / tsc / jest / build. Weekly dependency audit via `pip-audit` and `npm audit`.
+
+Install local hooks to catch issues before they hit CI:
+
+```bash
+pip install pre-commit && pre-commit install
+```
+
+Workflow source of truth: [`.github/workflows/`](.github/workflows/).
+
 ## What's in the repo
 
 - **Backend** (`backend/`) — FastAPI + PostgreSQL. Auth (JWT), accounts, transactions, internal P2P ledger, Paynow gateway integration. Concurrency-tested under 50 parallel transfers.

@@ -17,6 +17,7 @@ cd backend
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # fill in credentials
+python scripts/generate_secret_key.py   # paste output into .env as SECRET_KEY
 createdb zippie_db
 uvicorn app.main:app --reload --port 8000
 ```
@@ -69,6 +70,33 @@ pytest tests/unit/test_security.py
 - `LOG_FORMAT` — `json` (default, structured stdout for prod log aggregators) or `text` (plain formatter for local dev and tests). Set to `text` in `tests/conftest.py`.
 - `/health` now returns `version`, `environment`, and an ISO 8601 UTC `timestamp` alongside the existing `status`, `database`, and `services` keys — useful for deploy verification and uptime probes.
 
+## Secrets management
+
+Secrets resolve via `app.core.secrets.get_provider()`, selected by `SECRETS_PROVIDER`:
+
+- **`env`** (default) — reads `os.environ` / `.env`. Use for local dev and any
+  environment where config is injected at deploy time (Docker, Render, Railway).
+- **`aws`** — AWS Secrets Manager. Requires `pip install boto3` and IAM creds
+  on the runtime. Keys follow `{AWS_SECRETS_PREFIX}/{ENVIRONMENT}/{name}`,
+  e.g. `zippie/production/PAYNOW_INTEGRATION_KEY`. Set `AWS_REGION`
+  (default `af-south-1`). Values cache in-memory for the process lifetime.
+
+Generate `SECRET_KEY`:
+
+```bash
+python scripts/generate_secret_key.py
+```
+
+**Rotation.** Update the secret in AWS Secrets Manager, then restart the app
+to pick up the new value. Full rotation tooling (signal-triggered cache
+invalidation, key-overlap windows) is follow-up work.
+
+**Never commit filled-in `.env` files.** The repo `.gitignore` excludes
+`.env`, `.env.local`, `.env.test`, and the usual per-environment variants;
+only `.env.example` should be checked in. `pydantic-settings` currently
+reads env vars directly; the provider abstraction is the seam for future
+code paths that resolve a rotating secret outside the pydantic pipeline.
+
 ## Environment
 
 ```
@@ -80,4 +108,27 @@ PAYNOW_RETURN_URL=http://localhost:3000/payment-success
 PAYNOW_RESULT_URL=http://localhost:8000/api/v1/payments/paynow/webhook
 CORS_ORIGINS=http://localhost:3000
 DEBUG=true
+ADMIN_EMAILS=founder@zippie.co.zw
 ```
+
+## Admin access (RBAC)
+
+Two paths grant admin, either works:
+
+1. **Role column** (preferred): set `users.role = 'admin'` on the user row.
+   Valid roles: `user`, `admin`, `support`, `ops`, `finance`. Checked with
+   exact match — `require_role("admin")` does NOT implicitly allow `ops`.
+2. **Email allowlist** (bootstrap): add the email to `ADMIN_EMAILS` in `.env`.
+   Useful before any admin-granting API exists.
+
+Bootstrap the first admin manually, because there is no API yet to grant the
+role:
+
+```sql
+UPDATE users SET role='admin' WHERE email='founder@zippie.co.zw';
+```
+
+Once the first admin has `role='admin'`, drop their email from `ADMIN_EMAILS`
+and redeploy. The endpoints keep working through the role path. No Alembic
+revision is shipped in this commit — the `role` column will appear in the
+next auto-generated revision.

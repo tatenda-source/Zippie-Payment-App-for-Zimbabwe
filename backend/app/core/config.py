@@ -11,6 +11,11 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings"""
 
+    # Secrets
+    SECRETS_PROVIDER: str = "env"  # "env" | "aws"
+    AWS_REGION: str = "af-south-1"
+    AWS_SECRETS_PREFIX: str = "zippie"
+
     # Application
     ENVIRONMENT: str = "development"
     DEBUG: bool = True

@@ -23,7 +23,12 @@ from app.db.database import Base
 
 
 class User(Base):
-    """User model"""
+    """User model.
+
+    role is one of: "user" | "admin" | "support" | "ops" | "finance".
+    Stored as a plain String (not a DB enum) so adding a new role is a code
+    change only — no ALTER TYPE migration dance.
+    """
 
     __tablename__ = "users"
 
@@ -34,6 +39,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
+    role = Column(String, default="user", nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
