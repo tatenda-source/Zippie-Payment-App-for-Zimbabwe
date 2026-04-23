@@ -6,11 +6,12 @@ import logging
 import re
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.core.security import (
     create_access_token,
     get_password_hash,
@@ -63,7 +64,10 @@ def get_current_user(
 
 
 @router.post("/register", response_model=UserResponse)
-async def register(user_data: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(
+    request: Request, user_data: UserCreate, db: Session = Depends(get_db)
+):
     """Register a new user"""
     # Validate password strength
     if not validate_password(user_data.password):
@@ -150,7 +154,9 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit("10/minute")
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):

@@ -43,14 +43,27 @@ def test_users(session_factory):
     """
     session = session_factory()
     try:
-        # Clean up any stale test users from a previous run
+        # Clean up any stale test users from a previous run.
+        # audit_events and idempotency_keys don't have ORM-level cascade
+        # relationships on User (by design — audit_events outlive users), so we
+        # bulk-clear them first. accounts/transactions DO cascade via the ORM
+        # relationship, so session.delete(user) handles those naturally.
+        stale_emails = ["sender-ctest@zippie.test", "recipient-ctest@zippie.test"]
         stale = (
             session.query(models.User)
-            .filter(models.User.email.in_(["sender-ctest@zippie.test", "recipient-ctest@zippie.test"]))
+            .filter(models.User.email.in_(stale_emails))
             .all()
         )
-        for u in stale:
-            session.delete(u)
+        stale_user_ids = [u.id for u in stale]
+        if stale_user_ids:
+            session.query(models.AuditEvent).filter(
+                models.AuditEvent.actor_user_id.in_(stale_user_ids)
+            ).delete(synchronize_session=False)
+            session.query(models.IdempotencyKey).filter(
+                models.IdempotencyKey.user_id.in_(stale_user_ids)
+            ).delete(synchronize_session=False)
+            for u in stale:
+                session.delete(u)  # ORM delete → cascades to accounts + transactions
         session.commit()
 
         sender = models.User(
@@ -94,11 +107,20 @@ def test_users(session_factory):
             "initial_recipient_balance": 0.00,
         }
 
-        # Cleanup
+        # Cleanup. Order matters: child rows without ORM cascades first
+        # (ledger_entries, audit_events, idempotency_keys), then transactions
+        # + accounts, then users via session.delete (which ORM-cascades
+        # accounts/transactions — belt-and-suspenders).
         session.query(models.LedgerEntry).filter(
             models.LedgerEntry.account_id.in_(
                 [sender_account.id, recipient_account.id]
             )
+        ).delete(synchronize_session=False)
+        session.query(models.AuditEvent).filter(
+            models.AuditEvent.actor_user_id.in_([sender.id, recipient.id])
+        ).delete(synchronize_session=False)
+        session.query(models.IdempotencyKey).filter(
+            models.IdempotencyKey.user_id.in_([sender.id, recipient.id])
         ).delete(synchronize_session=False)
         session.query(models.Transaction).filter(
             models.Transaction.user_id.in_([sender.id, recipient.id])

@@ -17,14 +17,16 @@ import logging
 from decimal import Decimal
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.db import models
 from app.db.database import get_db
+from app.services.audit_log import record_event
 from app.services.reconciliation import (
     AccountDrift,
     ReconciliationReport,
@@ -131,7 +133,9 @@ def _serialize_report(r: ReconciliationReport) -> ReconciliationResponse:
 
 
 @router.get("/reconciliation", response_model=ReconciliationResponse)
+@limiter.limit("10/minute")
 async def get_reconciliation(
+    request: Request,
     admin: models.User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -152,11 +156,26 @@ async def get_reconciliation(
             f"unbalanced_internal={len(report.unbalanced_internal)}"
         )
 
+    record_event(
+        db,
+        source="admin",
+        event_type="admin.reconciliation_check",
+        actor_user_id=admin.id,
+        payload={
+            "invariant_ok": report.invariant_ok,
+            "global_drift": str(report.global_drift),
+            "violation_count": len(report.account_violations),
+        },
+    )
+    db.commit()
+
     return _serialize_report(report)
 
 
 @router.get("/health/ledger")
+@limiter.limit("30/minute")
 async def ledger_health_summary(
+    request: Request,
     admin: models.User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -166,6 +185,17 @@ async def ledger_health_summary(
     Designed to be pollable from a status page or uptime monitor.
     """
     report = run_reconciliation(db)
+    record_event(
+        db,
+        source="admin",
+        event_type="admin.ledger_health_check",
+        actor_user_id=admin.id,
+        payload={
+            "invariant_ok": report.invariant_ok,
+            "global_drift": str(report.global_drift),
+        },
+    )
+    db.commit()
     return {
         "invariant_ok": report.invariant_ok,
         "timestamp": report.timestamp,

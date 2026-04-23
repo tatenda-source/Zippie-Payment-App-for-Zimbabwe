@@ -10,12 +10,17 @@ from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from sqlalchemy import or_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
 from app.core.config import settings
+from app.core.features import is_enabled, require_feature
+from app.core.idempotency import check_idempotency, store_idempotency
+from app.core.rate_limit import limiter
 from app.db import models
 from app.db.database import get_db
 from app.db.schemas import (
@@ -28,6 +33,7 @@ from app.db.schemas import (
     TransactionResponse,
     TransactionStatusResponse,
 )
+from app.services.audit_log import record_event
 from app.services.paynow_service import paynow_service
 
 logger = logging.getLogger(__name__)
@@ -54,10 +60,16 @@ async def get_accounts(
 @router.post("/accounts", response_model=AccountResponse)
 async def create_account(
     account_data: AccountCreate,
+    request: Request,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Create a new account"""
+    idempotency_key = request.headers.get("X-Idempotency-Key")
+    cached = check_idempotency(db, current_user, idempotency_key, request.url.path)
+    if cached is not None:
+        return JSONResponse(status_code=cached[0], content=cached[1])
+
     # Validate currency
     valid_currencies = ["USD", "ZWL"]
     if account_data.currency not in valid_currencies:
@@ -84,13 +96,22 @@ async def create_account(
         )
 
         db.add(db_account)
-        db.commit()
+        db.flush()
         db.refresh(db_account)
+
+        response_body = jsonable_encoder(AccountResponse.model_validate(db_account))
+        store_idempotency(
+            db, current_user, idempotency_key, request.url.path, 200, response_body
+        )
+        db.commit()
 
         logger.info(
             f"Account created: user_id={current_user.id}, account_id={db_account.id}"
         )
         return db_account
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating account: {str(e)}")
@@ -119,12 +140,19 @@ async def get_transactions(
 
 
 @router.post("/transactions", response_model=TransactionResponse)
+@limiter.limit("30/minute")
 async def create_transaction(
+    request: Request,
     transaction_data: TransactionCreate,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Create a new transaction"""
+    idempotency_key = request.headers.get("X-Idempotency-Key")
+    cached = check_idempotency(db, current_user, idempotency_key, request.url.path)
+    if cached is not None:
+        return JSONResponse(status_code=cached[0], content=cached[1])
+
     # Validate transaction type
     valid_types = ["sent", "received", "request"]
     if transaction_data.transaction_type not in valid_types:
@@ -172,7 +200,12 @@ async def create_transaction(
         if transaction_data.transaction_type == "sent" and account:
             recipient_user = _find_zippie_recipient(db, transaction_data.recipient)
             if recipient_user and recipient_user.id != current_user.id:
-                return _internal_transfer(
+                if not is_enabled("internal_p2p"):
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="Feature 'internal_p2p' is disabled",
+                    )
+                tx = _internal_transfer(
                     db=db,
                     sender_user=current_user,
                     sender_account=account,
@@ -181,6 +214,17 @@ async def create_transaction(
                     amount=transaction_data.amount,
                     description=transaction_data.description,
                 )
+                if idempotency_key:
+                    store_idempotency(
+                        db,
+                        current_user,
+                        idempotency_key,
+                        request.url.path,
+                        200,
+                        jsonable_encoder(TransactionResponse.model_validate(tx)),
+                    )
+                    db.commit()
+                return tx
 
         # Slow path: "sent" to non-Zippie user → validate balance and mark pending.
         # Balance deduction happens after Paynow confirms payment.
@@ -220,8 +264,16 @@ async def create_transaction(
         )
 
         db.add(db_transaction)
-        db.commit()
+        db.flush()
         db.refresh(db_transaction)
+
+        response_body = jsonable_encoder(
+            TransactionResponse.model_validate(db_transaction)
+        )
+        store_idempotency(
+            db, current_user, idempotency_key, request.url.path, 200, response_body
+        )
+        db.commit()
 
         logger.info(
             f"Transaction created: id={db_transaction.id}, "
@@ -357,6 +409,20 @@ def _complete_transaction(db: Session, transaction: models.Transaction):
                 )
             )
 
+    record_event(
+        db,
+        source="system",
+        event_type="transaction.completed",
+        subject_type="transaction",
+        subject_id=transaction.id,
+        actor_user_id=transaction.user_id,
+        payload={
+            "amount": str(transaction.amount),
+            "currency": transaction.currency,
+            "payment_method": transaction.payment_method,
+        },
+    )
+
     db.commit()
     logger.info(
         f"Transaction {transaction.id} completed via Paynow "
@@ -375,6 +441,20 @@ def _fail_transaction(db: Session, transaction: models.Transaction):
         )
         .values(status="failed")
     )
+    if result.rowcount > 0:
+        record_event(
+            db,
+            source="system",
+            event_type="transaction.failed",
+            subject_type="transaction",
+            subject_id=transaction.id,
+            actor_user_id=transaction.user_id,
+            payload={
+                "amount": str(transaction.amount),
+                "currency": transaction.currency,
+                "payment_method": transaction.payment_method,
+            },
+        )
     db.commit()
     return result.rowcount > 0
 
@@ -626,6 +706,25 @@ def _internal_transfer(
     db.add(debit)
     db.add(credit)
 
+    # One audit event per logical transfer. The mirror_tx id is in the payload
+    # so auditors can reach both legs from either side without a second query.
+    record_event(
+        db,
+        source="system",
+        event_type="transaction.internal_transfer_completed",
+        subject_type="transaction",
+        subject_id=tx.id,
+        actor_user_id=sender_user.id,
+        payload={
+            "amount": str(amount),
+            "currency": sender.currency,
+            "sender_account_id": sender.id,
+            "recipient_account_id": recipient.id,
+            "mirror_transaction_id": mirror_tx.id,
+            "recipient_user_id": recipient_user.id,
+        },
+    )
+
     db.commit()
     db.refresh(tx)
     logger.info(
@@ -636,13 +735,23 @@ def _internal_transfer(
     return tx
 
 
-@router.post("/paynow/initiate", response_model=PaynowInitiateResponse)
+@router.post(
+    "/paynow/initiate",
+    response_model=PaynowInitiateResponse,
+    dependencies=[Depends(require_feature("paynow_checkout"))],
+)
 async def initiate_paynow_payment(
     request: PaynowInitiateRequest,
+    http_request: Request,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Initiate a Paynow payment for a pending transaction."""
+    idempotency_key = http_request.headers.get("X-Idempotency-Key")
+    cached = check_idempotency(db, current_user, idempotency_key, http_request.url.path)
+    if cached is not None:
+        return JSONResponse(status_code=cached[0], content=cached[1])
+
     if not paynow_service.is_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -720,9 +829,8 @@ async def initiate_paynow_payment(
         "phone_number": request.phone_number,
     }
     transaction.payment_method = request.payment_channel
-    db.commit()
 
-    return PaynowInitiateResponse(
+    response_obj = PaynowInitiateResponse(
         transaction_id=transaction.id,
         status="pending",
         poll_url=result.get("poll_url"),
@@ -730,9 +838,21 @@ async def initiate_paynow_payment(
         instructions=result.get("instructions"),
         paynow_reference=reference,
     )
+    store_idempotency(
+        db,
+        current_user,
+        idempotency_key,
+        http_request.url.path,
+        200,
+        jsonable_encoder(response_obj),
+    )
+    db.commit()
+
+    return response_obj
 
 
 @router.post("/paynow/webhook")
+@limiter.limit("60/minute")
 async def paynow_webhook(request: Request, db: Session = Depends(get_db)):
     """Handle Paynow payment result webhook (unauthenticated).
 
@@ -874,9 +994,14 @@ async def check_paynow_status(
     )
 
 
-@router.post("/paynow/topup/initiate", response_model=PaynowInitiateResponse)
+@router.post(
+    "/paynow/topup/initiate",
+    response_model=PaynowInitiateResponse,
+    dependencies=[Depends(require_feature("topup"))],
+)
 async def initiate_topup(
     request: PaynowTopupRequest,
+    http_request: Request,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -886,6 +1011,11 @@ async def initiate_topup(
     When Paynow confirms via webhook, _complete_transaction credits the wallet
     (CREDIT direction in the ledger, since this is money arriving).
     """
+    idempotency_key = http_request.headers.get("X-Idempotency-Key")
+    cached = check_idempotency(db, current_user, idempotency_key, http_request.url.path)
+    if cached is not None:
+        return JSONResponse(status_code=cached[0], content=cached[1])
+
     if not paynow_service.is_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -992,14 +1122,8 @@ async def initiate_topup(
         "phone_number": request.phone_number,
         "flow": "topup",
     }
-    db.commit()
 
-    logger.info(
-        f"Topup initiated: user={current_user.email} amount={request.amount} "
-        f"channel={request.payment_channel} tx_id={transaction.id}"
-    )
-
-    return PaynowInitiateResponse(
+    response_obj = PaynowInitiateResponse(
         transaction_id=transaction.id,
         status="pending",
         poll_url=result.get("poll_url"),
@@ -1007,3 +1131,19 @@ async def initiate_topup(
         instructions=result.get("instructions"),
         paynow_reference=reference,
     )
+    store_idempotency(
+        db,
+        current_user,
+        idempotency_key,
+        http_request.url.path,
+        200,
+        jsonable_encoder(response_obj),
+    )
+    db.commit()
+
+    logger.info(
+        f"Topup initiated: user={current_user.email} amount={request.amount} "
+        f"channel={request.payment_channel} tx_id={transaction.id}"
+    )
+
+    return response_obj

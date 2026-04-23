@@ -170,3 +170,61 @@ class WebhookEvent(Base):
         Index("ix_webhook_received_at", "received_at"),
     )
 
+
+class AuditEvent(Base):
+    """Append-only audit log. One row per meaningful state change or admin action.
+
+    Never UPDATE or DELETE these rows. If a mistake is logged, write a
+    compensating event — never mutate history.
+
+    FK is ON DELETE SET NULL: audit events outlive users by design. Deleting a
+    user must not erase their historical audit trail; the actor reference simply
+    becomes anonymous. This is the compliance-correct behaviour.
+    """
+    __tablename__ = "audit_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(String, nullable=False, index=True)
+    event_type = Column(String, nullable=False, index=True)
+    subject_type = Column(String, nullable=True, index=True)
+    subject_id = Column(Integer, nullable=True, index=True)
+    actor_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    payload = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+
+
+class IdempotencyKey(Base):
+    """Cache of write-endpoint responses keyed by (user_id, path, idempotency_key).
+
+    When a client sends the same X-Idempotency-Key to the same endpoint a second
+    time (after a retry or duplicate submit), we return the cached response body
+    + status instead of executing the write again. Expires after 24 hours.
+
+    FK is ON DELETE CASCADE: idempotency rows are ephemeral (24h TTL) and tied
+    to a user session. If the user is deleted, their replay cache goes with them.
+    """
+    __tablename__ = "idempotency_keys"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, nullable=False, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    method = Column(String, nullable=False)
+    path = Column(String, nullable=False, index=True)
+    response_status = Column(Integer, nullable=False)
+    response_body = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+
+    __table_args__ = (
+        UniqueConstraint("key", "user_id", "path", name="uq_idempotency_user_path_key"),
+    )
+

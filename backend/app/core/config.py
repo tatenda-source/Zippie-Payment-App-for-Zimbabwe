@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""
     LOG_FORMAT: str = "json"
 
+    # Feature flags
+    FEATURE_TOPUP: bool = True
+    FEATURE_CASHOUT: bool = False
+    FEATURE_INTERNAL_P2P: bool = True
+    FEATURE_PAYNOW_CHECKOUT: bool = True
+
     # Database
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/zippie_db"
 

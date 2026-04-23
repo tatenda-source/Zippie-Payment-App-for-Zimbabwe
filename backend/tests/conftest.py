@@ -15,10 +15,23 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.rate_limit import limiter
 from app.core.security import get_password_hash
 from app.db import models
 from app.db.database import Base, get_db
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Reset slowapi's in-memory counters between tests so limits don't bleed across.
+
+    Real request volume per test is tiny; the cross-test accumulation is what
+    blows past 10/min (login) or 30/min (transactions).
+    """
+    limiter.reset()
+    yield
+    limiter.reset()
 
 fake = Faker()
 
