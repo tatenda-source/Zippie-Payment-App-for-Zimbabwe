@@ -4,6 +4,9 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+# Pin bcrypt: passlib 1.7.4 reads bcrypt.__about__.__version__ which was
+# removed in bcrypt 4.1+. 4.0.1 is the last version with the legacy attr.
+bcrypt==4.0.1
 python-dotenv==1.0.0
 
 # Database
