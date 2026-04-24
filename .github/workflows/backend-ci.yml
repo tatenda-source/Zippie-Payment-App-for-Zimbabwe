@@ -9,6 +9,34 @@ jobs:
   backend:
     runs-on: ubuntu-latest
 
+    # test_concurrency.py talks to a real Postgres (SELECT FOR UPDATE + MVCC
+    # semantics can't be validated on SQLite). We spin up a throwaway Postgres
+    # service per CI run. Everything else still runs against in-memory SQLite
+    # via the test fixtures — only the concurrency module reaches this DB.
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: zippie_test
+          POSTGRES_PASSWORD: zippie_test
+          POSTGRES_DB: zippie_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Wired into pytest so conftest + test_concurrency can reach the service.
+      DATABASE_URL: postgresql://zippie_test:zippie_test@localhost:5432/zippie_test
+      # Settings.secret_key_valid requires >= 32 chars in non-test envs; the
+      # conftest sets ENVIRONMENT=test explicitly so this is just a placeholder.
+      SECRET_KEY: ci-runner-secret-key-minimum-32-chars-xxxxxxxxxxxx
+      LOG_FORMAT: text
+      ENVIRONMENT: test
+
     steps:
       - uses: actions/checkout@v4
 

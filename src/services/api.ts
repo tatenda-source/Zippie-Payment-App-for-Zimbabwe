@@ -114,7 +114,7 @@ const mapAccount = (acc: BackendAccount): Account => ({
   balance: acc.balance,
   currency: acc.currency as Currency,
   color: acc.color,
-  type: acc.account_type as AccountType
+  type: acc.account_type as AccountType,
 });
 
 const mapTransaction = (tx: BackendTransaction): Transaction => ({
@@ -127,7 +127,7 @@ const mapTransaction = (tx: BackendTransaction): Transaction => ({
   description: tx.description || '',
   status: tx.status as TransactionStatus,
   date: tx.created_at,
-  paymentMethod: tx.payment_method || 'Zippie Balance'
+  paymentMethod: tx.payment_method || 'Zippie Balance',
 });
 
 // Auth API
@@ -138,13 +138,10 @@ export const authAPI = {
     full_name: string;
     password: string;
   }) => {
-    return apiRequest<{ access_token: string; token_type: string }>(
-      '/auth/register',
-      {
-        method: 'POST',
-        body: JSON.stringify(userData),
-      }
-    );
+    return apiRequest<{ access_token: string; token_type: string }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
   },
 
   login: async (email: string, password: string) => {
@@ -196,7 +193,9 @@ export const paymentsAPI = {
   },
 
   getTransactions: async (limit: number = 50): Promise<Transaction[]> => {
-    const transactions = await apiRequest<BackendTransaction[]>(`/payments/transactions?limit=${limit}`);
+    const transactions = await apiRequest<BackendTransaction[]>(
+      `/payments/transactions?limit=${limit}`
+    );
     return transactions.map(mapTransaction);
   },
 
@@ -223,11 +222,13 @@ export const paymentsAPI = {
   },
 
   getBalance: async () => {
-    const balanceData = await apiRequest<{ USD: number, ZWL: number, accounts: BackendAccount[] }>('/payments/balance');
+    const balanceData = await apiRequest<{ USD: number; ZWL: number; accounts: BackendAccount[] }>(
+      '/payments/balance'
+    );
     return {
       USD: balanceData.USD,
       ZWL: balanceData.ZWL,
-      accounts: balanceData.accounts.map(mapAccount)
+      accounts: balanceData.accounts.map(mapAccount),
     };
   },
 
@@ -249,7 +250,9 @@ export const paymentsAPI = {
     });
   },
 
-  pollTransactionStatus: async (transactionId: number): Promise<{
+  pollTransactionStatus: async (
+    transactionId: number
+  ): Promise<{
     transaction_id: number;
     status: string;
     paid: boolean;
@@ -268,4 +271,3 @@ export const paymentsAPI = {
     return apiRequest(`/payments/resolve-recipient?query=${encodeURIComponent(query)}`);
   },
 };
-

@@ -3,22 +3,22 @@
  */
 
 export type Screen =
-    | 'home'
-    | 'send'
-    | 'request'
-    | 'history'
-    | 'payment-success'
-    | 'topup'
-    | 'cashout';
+  | 'home'
+  | 'send'
+  | 'request'
+  | 'history'
+  | 'payment-success'
+  | 'topup'
+  | 'cashout';
 
 export interface ScreenData {
-    symbol?: string;
-    paymentData?: any;
-    [key: string]: any;
+  symbol?: string;
+  paymentData?: any;
+  [key: string]: any;
 }
 
 export interface NavigationState {
-    currentScreen: Screen;
-    screenData: ScreenData;
-    history: Screen[];
+  currentScreen: Screen;
+  screenData: ScreenData;
+  history: Screen[];
 }

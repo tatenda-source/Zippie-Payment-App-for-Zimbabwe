@@ -32,8 +32,6 @@ export function HomeDashboard({ accounts, transactions, onNavigate }: HomeDashbo
     .filter(a => a.currency === 'ZWL')
     .reduce((sum, a) => sum + a.balance, 0);
 
-
-
   return (
     <div className='flex flex-col min-h-screen bg-background'>
       {/* Header */}
@@ -112,8 +110,6 @@ export function HomeDashboard({ accounts, transactions, onNavigate }: HomeDashbo
           </Button>
         </div>
 
-
-
         {/* Accounts */}
         <div className='space-y-4 mb-6'>
           <div className='flex justify-between items-center'>
@@ -191,9 +187,15 @@ export function HomeDashboard({ accounts, transactions, onNavigate }: HomeDashbo
                           {formatCurrency(transaction.amount, transaction.currency)}
                         </p>
                         {(() => {
-                          const Icon = getStatusIcon(transaction.status as 'completed' | 'pending' | 'failed');
-                          const iconColor = transaction.status === 'completed' ? 'text-green-700 dark:text-green-400' :
-                            transaction.status === 'pending' ? 'text-yellow-700 dark:text-yellow-400' : 'text-red-700 dark:text-red-400';
+                          const Icon = getStatusIcon(
+                            transaction.status as 'completed' | 'pending' | 'failed'
+                          );
+                          const iconColor =
+                            transaction.status === 'completed'
+                              ? 'text-green-700 dark:text-green-400'
+                              : transaction.status === 'pending'
+                                ? 'text-yellow-700 dark:text-yellow-400'
+                                : 'text-red-700 dark:text-red-400';
                           return <Icon className={`w-4 h-4 ${iconColor}`} />;
                         })()}
                       </div>

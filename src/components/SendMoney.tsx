@@ -666,9 +666,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
               <div className='flex justify-between'>
                 <span className='text-gray-600'>To</span>
                 <span className='font-medium'>
-                  {isInstant && zippieUser?.displayName
-                    ? zippieUser.displayName
-                    : recipient}
+                  {isInstant && zippieUser?.displayName ? zippieUser.displayName : recipient}
                 </span>
               </div>
               {isInstant ? (
@@ -694,13 +692,9 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
                 </>
               )}
               <div className='flex justify-between'>
-                <span className='text-gray-600'>
-                  {isInstant ? 'Fee' : 'Processing fee'}
-                </span>
+                <span className='text-gray-600'>{isInstant ? 'Fee' : 'Processing fee'}</span>
                 <span className='font-medium'>
-                  {isInstant
-                    ? 'Free'
-                    : formatCurrency(fee, selectedAccount?.currency || 'USD')}
+                  {isInstant ? 'Free' : formatCurrency(fee, selectedAccount?.currency || 'USD')}
                 </span>
               </div>
               <Separator />
