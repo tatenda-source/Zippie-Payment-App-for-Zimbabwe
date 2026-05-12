@@ -739,7 +739,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
         <div className='flex gap-3'>
           <Button
             variant='outline'
-            onClick={() => setStep(isInstant ? 'recipient' : 'payment-method')}
+            onClick={() => setStep('payment-method')}
             className='flex-1'
             disabled={isProcessing}
           >

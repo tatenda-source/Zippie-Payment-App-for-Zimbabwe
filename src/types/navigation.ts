@@ -2,14 +2,7 @@
  * Navigation-related type definitions
  */
 
-export type Screen =
-  | 'home'
-  | 'send'
-  | 'request'
-  | 'history'
-  | 'payment-success'
-  | 'topup'
-  | 'cashout';
+export type Screen = 'home' | 'send' | 'request' | 'history' | 'payment-success';
 
 export interface ScreenData {
   symbol?: string;
