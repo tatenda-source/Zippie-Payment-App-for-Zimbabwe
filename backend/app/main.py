@@ -1,5 +1,5 @@
 """
-Zippie - P2P Payment Platform for Zimbabwe
+Paynow Connect — white-label payments platform on Paynow rails.
 """
 
 import logging
@@ -69,8 +69,8 @@ except Exception as e:
     raise
 
 app = FastAPI(
-    title="Zippie Payment Platform",
-    description="P2P Payment System for Zimbabwe",
+    title="Paynow Connect",
+    description="White-label payments platform on Paynow rails",
     version="2.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
@@ -97,7 +97,7 @@ app.include_router(api_router, prefix="/api/v1")
 async def root():
     """Root endpoint"""
     return {
-        "message": "Zippie Payment Platform API",
+        "message": "Paynow Connect API",
         "version": "2.0.0",
         "status": "healthy",
     }

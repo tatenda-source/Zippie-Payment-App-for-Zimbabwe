@@ -1,9 +1,9 @@
-# Zippie — P2P Payment App for Zimbabwe
+# Paynow Connect
 
-**Instant P2P payments on top of Paynow's rails.** Zippie is the consumer wallet layer that sits above mobile money (EcoCash / OneMoney) — you top up once, send to other Zippie users at <50ms against an internal double-entry ledger, and cash out when you need to.
+**White-label payments platform on Paynow rails.** Paynow Connect is the B2B SaaS layer that lets businesses (SACCOs, schools, merchants) ship branded P2P / payouts apps powered by Paynow. Every transfer is a Paynow account-to-account operation between Paynow IDs — the platform holds no float, taking the regulatory and reconciliation burden off the tenant.
 
-> See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the float model, correctness guarantees, and risk controls.
-> See [`docs/VC_ANALYSIS.md`](docs/VC_ANALYSIS.md) for the strategic / GTM deep-dive.
+> See [`docs/PIVOT_PLAN.md`](docs/PIVOT_PLAN.md) for the current architecture direction (Phase 1 in flight).
+> Historical: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) documents the original Zippie float model, now being phased out.
 
 ## CI
 
@@ -22,8 +22,8 @@ Workflow source of truth: [`.github/workflows/`](.github/workflows/).
 
 ## What's in the repo
 
-- **Backend** (`backend/`) — FastAPI + PostgreSQL. Auth (JWT), accounts, transactions, internal P2P ledger, Paynow gateway integration. Concurrency-tested under 50 parallel transfers.
-- **Frontend** (`src/`) — React 18 + TypeScript + Tailwind. Home, SendMoney, RequestPayment, TransactionHistory, PaymentSuccess.
+- **Backend** (`backend/`) — FastAPI + PostgreSQL. Auth (JWT), multi-tenant model, transactions routed through a pluggable Paynow rails adapter, audit-only ledger.
+- **Frontend** (`src/`) — React 18 + TypeScript + Tailwind. Home, SendMoney, RequestPayment, TransactionHistory, PaymentSuccess. Full multi-tenant rebrand lands in Phase 2.
 
 ## Quick start
 
@@ -35,7 +35,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # fill in DATABASE_URL, SECRET_KEY, PAYNOW_*
-createdb zippie_db
+createdb paynow_connect_db
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -61,7 +61,7 @@ cd backend && pytest
 npm test
 ```
 
-Concurrency test: `backend/tests/integration/test_concurrency.py` — 50 threads × $10 on a $500 wallet verifies ledger invariant (`sum(debits) == sum(credits)`, sender → $0, recipient → $500).
+Concurrency test: `backend/tests/integration/test_concurrency.py` — 50 parallel rails-adapter pushes verify idempotency on `paynow_transfer_ref` UNIQUE.
 
 ## Core endpoints
 
@@ -79,12 +79,13 @@ Concurrency test: `backend/tests/integration/test_concurrency.py` — 50 threads
 **Backend `.env`:**
 
 ```
-DATABASE_URL=postgresql://user:password@localhost:5432/zippie_db
+DATABASE_URL=postgresql://user:password@localhost:5432/paynow_connect_db
 SECRET_KEY=<generate with: python -c "import secrets; print(secrets.token_hex(32))">
 PAYNOW_INTEGRATION_ID=
 PAYNOW_INTEGRATION_KEY=
 PAYNOW_RETURN_URL=http://localhost:3000/payment-success
 PAYNOW_RESULT_URL=http://localhost:8000/api/v1/payments/paynow/webhook
+PAYNOW_RAILS_ADAPTER=merchant_collect_payout  # merchant_collect_payout | a2a_push | mock
 CORS_ORIGINS=http://localhost:3000
 DEBUG=true
 ```
@@ -97,9 +98,7 @@ REACT_APP_API_URL=http://localhost:8000/api/v1
 
 ## Status
 
-Current sprint: top-up + cash-out (Sprint 1 in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)).
-
-Priority tracker lives in the architecture doc — P0/P1/P2 split, shipped vs. open.
+Phase 1 (Zippie → Paynow Connect pivot) in flight. Phase plan + scope: [`docs/PIVOT_PLAN.md`](docs/PIVOT_PLAN.md).
 
 ## License
 

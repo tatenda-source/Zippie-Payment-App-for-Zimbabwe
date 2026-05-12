@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # Application
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
-    PROJECT_NAME: str = "Zippie Payment Platform"
+    PROJECT_NAME: str = "Paynow Connect"
     APP_VERSION: str = "0.1.0"
 
     # Observability

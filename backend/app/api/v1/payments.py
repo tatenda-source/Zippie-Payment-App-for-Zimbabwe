@@ -442,8 +442,11 @@ def _fail_transaction(db: Session, transaction: models.Transaction):
     return result.rowcount > 0
 
 
+_REFERENCE_PREFIXES = ("PNC-", "ZIPPIE-")  # ZIPPIE- accepted for in-flight legacy txns
+
+
 def _build_paynow_reference(tx_id: int) -> str:
-    """Build an unenumerable Paynow reference: ZIPPIE-{uuid12}-{tx_id}.
+    """Build an unenumerable Paynow reference: PNC-{uuid12}-{tx_id}.
 
     The UUID segment makes the reference non-guessable for an outside
     observer, which matters because references can leak in logs, support
@@ -451,19 +454,18 @@ def _build_paynow_reference(tx_id: int) -> str:
     handler can still do an O(1) transaction lookup without a secondary
     index on a JSONB column.
     """
-    return f"ZIPPIE-{uuid.uuid4().hex[:12]}-{tx_id}"
+    return f"PNC-{uuid.uuid4().hex[:12]}-{tx_id}"
 
 
 def _parse_tx_id_from_reference(reference: str) -> Optional[int]:
-    """Extract the transaction ID from either reference format.
+    """Extract the transaction ID from a Paynow reference.
 
-    Accepts the new form `ZIPPIE-{uuid12}-{id}` and the legacy form
-    `ZIPPIE-{id}`. Returns None on unparseable input.
+    Accepts current `PNC-{uuid12}-{id}` and legacy `ZIPPIE-{uuid12}-{id}`
+    or `ZIPPIE-{id}` forms. Last segment is always the tx_id.
     """
-    if not reference or not reference.startswith("ZIPPIE-"):
+    if not reference or not any(reference.startswith(p) for p in _REFERENCE_PREFIXES):
         return None
     try:
-        # Last hyphen-separated segment is always the tx_id in both formats.
         return int(reference.rsplit("-", 1)[-1])
     except (ValueError, AttributeError):
         return None

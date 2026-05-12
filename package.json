@@ -1,7 +1,7 @@
 {
-  "name": "zippie-payment-app",
+  "name": "paynow-connect",
   "version": "1.0.0",
-  "description": "Zippie Payment App for Zimbabwe",
+  "description": "Paynow Connect — white-label payments platform on Paynow rails",
   "private": true,
   "dependencies": {
     "@types/node": "^20.0.0",

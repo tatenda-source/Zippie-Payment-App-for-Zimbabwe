@@ -1,5 +1,5 @@
 """
-Database models for Zippie Payment Platform
+Database models for Paynow Connect.
 """
 
 from sqlalchemy import (

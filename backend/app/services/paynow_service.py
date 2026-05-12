@@ -58,7 +58,7 @@ class PaynowService:
         self._ensure_configured()
 
         payment = self._client.create_payment(reference, email)
-        payment.add(description or "Zippie Payment", amount)
+        payment.add(description or "Paynow Connect Payment", amount)
 
         response = self._client.send(payment)
 
@@ -96,7 +96,7 @@ class PaynowService:
             raise ValueError(f"Invalid mobile method '{method}'. Must be one of: {valid_methods}")
 
         payment = self._client.create_payment(reference, email)
-        payment.add(description or "Zippie Payment", amount)
+        payment.add(description or "Paynow Connect Payment", amount)
 
         response = self._client.send_mobile(payment, phone, method)
 
