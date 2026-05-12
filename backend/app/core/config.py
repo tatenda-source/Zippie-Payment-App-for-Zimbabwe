@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     PAYNOW_INTEGRATION_KEY: str = ""
     PAYNOW_RETURN_URL: str = "http://localhost:3000/payment/return"
     PAYNOW_RESULT_URL: str = "http://localhost:8000/api/v1/payments/paynow/webhook"
+    # Rails adapter selects which Paynow code path moves money:
+    #   merchant_collect_payout — today's Paynow SDK, collect-then-payout per P2P (default)
+    #   a2a_push                — Paynow account-to-account push API (stub until wired)
+    #   mock                    — deterministic in-memory adapter for tests
+    PAYNOW_RAILS_ADAPTER: str = "merchant_collect_payout"
 
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"
