@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
+PAYNOW_ID_REGEX = re.compile(r"^[A-Za-z0-9._-]{4,32}$")
+
 
 def validate_password(password: str) -> bool:
     """Validate password strength"""
@@ -86,45 +88,72 @@ async def register(request: Request, user_data: UserCreate, db: Session = Depend
             detail="Invalid phone number format",
         )
 
+    # Validate Paynow ID — required post-pivot. Lenient regex now;
+    # tightening happens in a follow-up migration once the real format
+    # is confirmed.
+    paynow_id = (user_data.paynow_id or "").strip()
+    if not PAYNOW_ID_REGEX.match(paynow_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Paynow ID format (4–32 chars: A–Z, a–z, 0–9, . _ -)",
+        )
+
     try:
-        # Check if user exists
-        existing_user = (
+        tenant = None
+        if user_data.tenant_slug:
+            tenant = (
+                db.query(models.Tenant)
+                .filter(models.Tenant.slug == user_data.tenant_slug.strip())
+                .first()
+            )
+            if not tenant or not tenant.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Unknown or inactive tenant",
+                )
+
+        # Existing user check — global on email/phone, scoped per tenant on Paynow ID.
+        if (
             db.query(models.User)
             .filter((models.User.email == user_data.email) | (models.User.phone == user_data.phone))
             .first()
-        )
-
-        if existing_user:
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="User with this email or phone already exists",
             )
 
-        # Create new user
+        tenant_id = tenant.id if tenant else None
+        clash_q = db.query(models.User).filter(models.User.paynow_id == paynow_id)
+        clash_q = (
+            clash_q.filter(models.User.tenant_id.is_(None))
+            if tenant_id is None
+            else clash_q.filter(models.User.tenant_id == tenant_id)
+        )
+        if clash_q.first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This Paynow ID is already linked to another account",
+            )
+
         hashed_password = get_password_hash(user_data.password)
         db_user = models.User(
             email=user_data.email,
             phone=user_data.phone,
             full_name=user_data.full_name,
             hashed_password=hashed_password,
+            paynow_id=paynow_id,
+            tenant_id=tenant_id,
         )
 
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
 
-        # Create default account
-        default_account = models.Account(
-            user_id=db_user.id,
-            name="Main Account",
-            balance=0.0,
-            currency="USD",
-            account_type="primary",
+        logger.info(
+            f"User registered: email={user_data.email}, user_id={db_user.id}, "
+            f"tenant_id={tenant_id}"
         )
-        db.add(default_account)
-        db.commit()
-
-        logger.info(f"User registered: email={user_data.email}, user_id={db_user.id}")
         return db_user
     except HTTPException:
         db.rollback()
