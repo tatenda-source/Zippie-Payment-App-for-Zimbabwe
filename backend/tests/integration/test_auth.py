@@ -18,6 +18,7 @@ class TestAuthentication:
             "phone": "+1234567890",
             "full_name": fake.name(),
             "password": "TestPassword123",
+            "paynow_id": "pn-newuser-01",
         }
 
         response = client.post("/api/v1/auth/register", json=user_data)
@@ -27,6 +28,7 @@ class TestAuthentication:
         assert data["email"] == user_data["email"]
         assert data["phone"] == user_data["phone"]
         assert data["full_name"] == user_data["full_name"]
+        assert data["paynow_id"] == user_data["paynow_id"]
         assert "id" in data
         assert "hashed_password" not in data
 
@@ -37,6 +39,7 @@ class TestAuthentication:
             "phone": "+9876543210",
             "full_name": "Test User",
             "password": "TestPassword123",
+            "paynow_id": "pn-newuser-02",
         }
 
         response = client.post("/api/v1/auth/register", json=user_data)
@@ -51,12 +54,42 @@ class TestAuthentication:
             "phone": "+1234567890",
             "full_name": fake.name(),
             "password": "weak",
+            "paynow_id": "pn-newuser-03",
         }
 
         response = client.post("/api/v1/auth/register", json=user_data)
 
         assert response.status_code == 400
         assert "password" in response.json()["detail"].lower()
+
+    def test_register_missing_paynow_id(self, client):
+        """Paynow ID is required post-pivot."""
+        user_data = {
+            "email": fake.email(),
+            "phone": "+1234567890",
+            "full_name": fake.name(),
+            "password": "TestPassword123",
+        }
+
+        response = client.post("/api/v1/auth/register", json=user_data)
+
+        # Pydantic returns 422 on missing required field
+        assert response.status_code == 422
+
+    def test_register_duplicate_paynow_id(self, client, test_user):
+        """Paynow ID must be unique per tenant (test_user has no tenant)."""
+        user_data = {
+            "email": fake.email(),
+            "phone": "+1234567000",
+            "full_name": fake.name(),
+            "password": "TestPassword123",
+            "paynow_id": test_user.paynow_id,
+        }
+
+        response = client.post("/api/v1/auth/register", json=user_data)
+
+        assert response.status_code == 400
+        assert "paynow id" in response.json()["detail"].lower()
 
     def test_login_success(self, client, test_user):
         """Test successful login"""

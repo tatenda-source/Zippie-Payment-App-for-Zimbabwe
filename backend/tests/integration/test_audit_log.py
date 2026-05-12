@@ -1,33 +1,23 @@
 """Audit event log integration tests.
 
 Audit events must be atomic with the state change that triggered them.
-If the outer DB transaction rolls back, the audit row must roll back too.
+Post-pivot, every rails-routed transfer writes a
+`transaction.rails_transfer_initiated` event; completion writes a
+`transaction.completed` event.
 """
 
 import pytest
 from sqlalchemy import inspect
 
 from app.api.v1.payments import _complete_transaction
-from app.core.security import get_password_hash
 from app.db import models
 
 
 @pytest.mark.integration
-class TestAuditLogInternalTransfer:
-    def test_internal_transfer_writes_one_audit_event(
-        self, authenticated_client, test_account, db_session, test_user
+class TestAuditLogRailsTransfer:
+    def test_rails_transfer_writes_one_audit_event(
+        self, authenticated_client, test_account, test_recipient, db_session, test_user
     ):
-        recipient = models.User(
-            email="audit-recipient@example.com",
-            phone="+263700000777",
-            full_name="Audit Recipient",
-            hashed_password=get_password_hash("x"),
-            is_active=True,
-            is_verified=True,
-        )
-        db_session.add(recipient)
-        db_session.commit()
-
         response = authenticated_client.post(
             "/api/v1/payments/transactions",
             json={
@@ -35,7 +25,7 @@ class TestAuditLogInternalTransfer:
                 "transaction_type": "sent",
                 "amount": 25,
                 "currency": "USD",
-                "recipient": "audit-recipient@example.com",
+                "recipient": test_recipient.email,
                 "description": "audited transfer",
             },
         )
@@ -43,98 +33,72 @@ class TestAuditLogInternalTransfer:
         tx_id = response.json()["id"]
 
         events = (
-            db_session.query(models.AuditEvent).filter(models.AuditEvent.subject_id == tx_id).all()
+            db_session.query(models.AuditEvent)
+            .filter(models.AuditEvent.subject_id == tx_id)
+            .all()
         )
-        assert len(events) == 1
-        ev = events[0]
-        assert ev.event_type == "transaction.internal_transfer_completed"
-        assert ev.source == "system"
-        assert ev.subject_type == "transaction"
-        assert ev.actor_user_id == test_user.id
-        assert ev.payload["amount"] == "25.0"
-        assert ev.payload["currency"] == "USD"
-        assert "mirror_transaction_id" in ev.payload
-        assert ev.payload["recipient_user_id"] == recipient.id
+        # rails_transfer_initiated on send; transaction.completed when the
+        # mock adapter resolves synchronously.
+        event_types = sorted(e.event_type for e in events)
+        assert "transaction.rails_transfer_initiated" in event_types
+
+        init = next(e for e in events if e.event_type == "transaction.rails_transfer_initiated")
+        assert init.source == "system"
+        assert init.subject_type == "transaction"
+        assert init.actor_user_id == test_user.id
+        assert init.payload["amount"] == "25.0"
+        assert init.payload["currency"] == "USD"
+        assert init.payload["sender_paynow_id"] == test_user.paynow_id
+        assert init.payload["recipient_paynow_id"] == test_recipient.paynow_id
 
 
 @pytest.mark.integration
-class TestAuditLogPaynowFlow:
-    def test_pending_paynow_send_has_no_audit_event_until_completion(
-        self, authenticated_client, test_account, db_session
+class TestAuditLogCompletion:
+    def test_completion_writes_audit_event(
+        self, authenticated_client, test_account, test_recipient, db_session
     ):
-        response = authenticated_client.post(
-            "/api/v1/payments/transactions",
-            json={
-                "account_id": test_account.id,
-                "transaction_type": "sent",
-                "amount": 40,
-                "currency": "USD",
-                "recipient": "not-a-zippie-user@example.com",
-                "description": "external send",
-            },
+        """Calling _complete_transaction on a pending tx writes one event."""
+        # Create a "received" pending transaction directly (no rails call).
+        tx = models.Transaction(
+            user_id=test_recipient.id,
+            account_id=None,
+            transaction_type="received",
+            amount=40,
+            currency="USD",
+            recipient=test_recipient.email,
+            status="pending",
+            payment_method="paynow_rails",
         )
-        assert response.status_code == 200
-        tx_id = response.json()["id"]
-        assert response.json()["status"] == "pending"
+        db_session.add(tx)
+        db_session.commit()
+        db_session.refresh(tx)
 
-        events = (
-            db_session.query(models.AuditEvent).filter(models.AuditEvent.subject_id == tx_id).all()
-        )
-        assert events == []
-
-        transaction = db_session.query(models.Transaction).get(tx_id)
-        assert _complete_transaction(db_session, transaction) is True
-
-        events = (
-            db_session.query(models.AuditEvent).filter(models.AuditEvent.subject_id == tx_id).all()
-        )
-        assert len(events) == 1
-        ev = events[0]
-        assert ev.event_type == "transaction.completed"
-        assert ev.source == "system"
-        assert ev.payload["amount"] == "40.00"
-        assert ev.payload["currency"] == "USD"
-
-
-@pytest.mark.integration
-class TestAuditLogAdminReconciliation:
-    def test_admin_reconciliation_writes_audit_event(
-        self, authenticated_client, test_user, db_session, monkeypatch
-    ):
-        monkeypatch.setattr(
-            "app.core.config.settings.ADMIN_EMAILS",
-            test_user.email,
-        )
-        response = authenticated_client.get("/api/v1/admin/reconciliation")
-        assert response.status_code == 200
+        assert _complete_transaction(db_session, tx) is True
 
         events = (
             db_session.query(models.AuditEvent)
-            .filter(models.AuditEvent.event_type == "admin.reconciliation_check")
+            .filter(
+                models.AuditEvent.subject_id == tx.id,
+                models.AuditEvent.event_type == "transaction.completed",
+            )
             .all()
         )
         assert len(events) == 1
-        ev = events[0]
-        assert ev.source == "admin"
-        assert ev.actor_user_id == test_user.id
-        assert ev.payload["invariant_ok"] is True
-        assert ev.payload["global_drift"] == "0"
-        assert ev.payload["violation_count"] == 0
+        assert events[0].payload["currency"] == "USD"
 
 
 @pytest.mark.integration
 class TestAuditEventImmutabilityConventions:
-    """Documentation test: the invariant that audit rows are immutable is
-    enforced by convention, not a DB CHECK. This test pins the schema so
-    any future change that would enable in-place mutation (adding an
-    updated_at or status column, for instance) breaks loudly.
+    """The invariant that audit rows are immutable is enforced by convention.
+
+    This pins the schema so any future change that would enable in-place
+    mutation (adding updated_at or status) breaks loudly.
     """
 
     def test_no_updated_at_or_status_columns(self):
         cols = {c.name for c in inspect(models.AuditEvent).columns}
         assert "updated_at" not in cols
         assert "status" not in cols
-        # These are the only columns allowed on AuditEvent
         expected = {
             "id",
             "source",

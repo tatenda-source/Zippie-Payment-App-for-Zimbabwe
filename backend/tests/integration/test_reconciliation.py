@@ -1,8 +1,15 @@
-"""Reconciliation service + admin endpoint integration tests."""
+"""Reconciliation service + admin endpoint integration tests.
+
+Skipped post-pivot: Paynow Connect no longer holds float so there's no
+settlement to reconcile against the local ledger. Phase 4 deletes
+app/services/reconciliation.py and this suite.
+"""
 
 from decimal import Decimal
 
 import pytest
+
+pytestmark = pytest.mark.skip(reason="Float-era reconciliation — pivot removed held float.")
 
 from app.api.v1.payments import _build_paynow_reference, _parse_tx_id_from_reference
 from app.core.security import get_password_hash

@@ -8,6 +8,9 @@ import os
 os.environ["ENVIRONMENT"] = "test"
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing"
 os.environ["LOG_FORMAT"] = "text"
+# Default to the in-memory mock rails adapter for tests. Individual tests
+# can monkeypatch settings.PAYNOW_RAILS_ADAPTER if they need a different one.
+os.environ["PAYNOW_RAILS_ADAPTER"] = "mock"
 
 import pytest  # noqa: E402
 from faker import Faker  # noqa: E402
@@ -81,7 +84,7 @@ def client(db_session):
 
 @pytest.fixture
 def test_user(db_session):
-    """Create a test user"""
+    """Create a test user with a linked Paynow ID."""
     user = models.User(
         email=fake.email(),
         phone=fake.phone_number(),
@@ -89,6 +92,25 @@ def test_user(db_session):
         hashed_password=get_password_hash("TestPassword123"),
         is_active=True,
         is_verified=True,
+        paynow_id=f"pn-{fake.uuid4()[:8]}",
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def test_recipient(db_session):
+    """A second user (with paynow_id) used as a recipient in send tests."""
+    user = models.User(
+        email=fake.email(),
+        phone=fake.phone_number(),
+        full_name=fake.name(),
+        hashed_password=get_password_hash("TestPassword123"),
+        is_active=True,
+        is_verified=True,
+        paynow_id=f"pn-{fake.uuid4()[:8]}",
     )
     db_session.add(user)
     db_session.commit()
