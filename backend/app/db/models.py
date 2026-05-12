@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -82,8 +83,21 @@ class User(Base):
     transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
     tenant = relationship("Tenant", back_populates="users")
 
+    # Two complementary uniqueness rules for paynow_id:
+    #   (tenant_id, paynow_id) UNIQUE — covers tenant-scoped registrations,
+    #     but Postgres treats (NULL, X) and (NULL, X) as distinct rows so
+    #     this constraint alone leaks duplicates when tenant_id is NULL.
+    #   Partial unique index WHERE tenant_id IS NULL — closes the gap.
+    # Together they enforce "one user per Paynow ID per tenant context."
     __table_args__ = (
         UniqueConstraint("tenant_id", "paynow_id", name="uq_users_tenant_paynow_id"),
+        Index(
+            "uq_users_paynow_id_global",
+            "paynow_id",
+            unique=True,
+            postgresql_where=text("tenant_id IS NULL"),
+            sqlite_where=text("tenant_id IS NULL"),
+        ),
     )
 
 

@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -147,7 +148,17 @@ async def register(request: Request, user_data: UserCreate, db: Session = Depend
         )
 
         db.add(db_user)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            # Concurrent registration raced past the app-side pre-check and
+            # tripped the (tenant_id, paynow_id) UNIQUE / partial-unique index.
+            # Surface the actual reason instead of a generic 500.
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This Paynow ID is already linked to another account",
+            )
         db.refresh(db_user)
 
         logger.info(

@@ -3,6 +3,10 @@ Integration tests for authentication endpoints
 """
 import pytest
 from faker import Faker
+from sqlalchemy.exc import IntegrityError
+
+from app.core.security import get_password_hash
+from app.db import models
 
 fake = Faker()
 
@@ -140,3 +144,32 @@ class TestAuthentication:
         response = client.get("/api/v1/auth/me")
 
         assert response.status_code == 401
+
+    def test_paynow_id_uniqueness_enforced_at_db_level_when_tenant_null(
+        self, db_session
+    ):
+        """Two users with NULL tenant_id and the same paynow_id must collide
+        at the DB level (partial unique index). Postgres treats NULLs as
+        distinct in a composite UNIQUE, so the (tenant_id, paynow_id)
+        constraint alone would let duplicates through.
+        """
+        u1 = models.User(
+            email="dup1@example.com",
+            phone="+263700000111",
+            full_name="Dup One",
+            hashed_password=get_password_hash("x"),
+            paynow_id="pn-clash",
+        )
+        u2 = models.User(
+            email="dup2@example.com",
+            phone="+263700000222",
+            full_name="Dup Two",
+            hashed_password=get_password_hash("x"),
+            paynow_id="pn-clash",
+        )
+        db_session.add(u1)
+        db_session.commit()
+
+        db_session.add(u2)
+        with pytest.raises(IntegrityError):
+            db_session.commit()

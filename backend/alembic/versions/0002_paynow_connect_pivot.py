@@ -65,6 +65,15 @@ def upgrade() -> None:
     op.create_unique_constraint(
         "uq_users_tenant_paynow_id", "users", ["tenant_id", "paynow_id"]
     )
+    # Postgres treats NULLs as distinct in UNIQUE indexes, so the composite
+    # constraint above doesn't actually enforce uniqueness when tenant_id
+    # is NULL — multiple rows could share the same paynow_id under the
+    # platform default tenant context. The partial unique index closes that
+    # gap. Both Postgres and SQLite (≥3.8) support partial unique indexes.
+    op.execute(
+        "CREATE UNIQUE INDEX uq_users_paynow_id_global "
+        "ON users (paynow_id) WHERE tenant_id IS NULL"
+    )
 
     op.add_column("transactions", sa.Column("tenant_id", sa.Integer(), nullable=True))
     op.add_column(
@@ -113,6 +122,7 @@ def downgrade() -> None:
     op.drop_column("transactions", "sender_paynow_id")
     op.drop_column("transactions", "tenant_id")
 
+    op.execute("DROP INDEX IF EXISTS uq_users_paynow_id_global")
     op.drop_constraint("uq_users_tenant_paynow_id", "users", type_="unique")
     op.drop_constraint("fk_users_tenant_id_tenants", "users", type_="foreignkey")
     op.drop_index("ix_users_tenant_id", table_name="users")
