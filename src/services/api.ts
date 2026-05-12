@@ -137,6 +137,8 @@ export const authAPI = {
     phone: string;
     full_name: string;
     password: string;
+    paynow_id: string;
+    tenant_slug?: string;
   }) => {
     return apiRequest<{ access_token: string; token_type: string }>('/auth/register', {
       method: 'POST',
@@ -207,6 +209,7 @@ export const paymentsAPI = {
     description?: string;
     payment_method?: string;
     account_id?: number | string; // Accept string as we agreed to support string IDs in frontend
+    recipient_paynow_id?: string; // Optional: explicit Paynow ID for the recipient
   }): Promise<Transaction> => {
     // If account_id is provided as string, try to parse it to int for backend
     const payload = { ...transactionData };
@@ -262,12 +265,15 @@ export const paymentsAPI = {
   },
 
   resolveRecipient: async (
-    query: string
+    paynowId: string
   ): Promise<{
-    is_zippie_user: boolean;
-    query: string;
+    is_known_user: boolean;
+    paynow_id: string;
     display_name?: string;
+    tenant_id?: number;
   }> => {
-    return apiRequest(`/payments/resolve-recipient?query=${encodeURIComponent(query)}`);
+    return apiRequest(
+      `/payments/resolve-recipient?paynow_id=${encodeURIComponent(paynowId)}`
+    );
   },
 };

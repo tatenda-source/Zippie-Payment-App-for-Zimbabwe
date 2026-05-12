@@ -56,10 +56,13 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
     status: 'initiating',
   });
 
-  // Zippie user detection (instant P2P path)
-  const [zippieUser, setZippieUser] = useState<{
-    isZippieUser: boolean;
+  // Recipient resolution: known user = recipient already registered with us
+  // and has a linked Paynow ID we can route to. Phase 2 rebrands this UX
+  // to ask for the recipient's Paynow ID directly.
+  const [knownRecipient, setKnownRecipient] = useState<{
+    isKnown: boolean;
     displayName?: string;
+    paynowId?: string;
   } | null>(null);
   const [isResolvingRecipient, setIsResolvingRecipient] = useState(false);
 
@@ -76,7 +79,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
     } else if (step === 'recipient' && amount && recipient) {
       // If the recipient is a Zippie user, skip the payment-method step —
       // the transfer goes through the internal ledger, not Paynow.
-      if (zippieUser?.isZippieUser) {
+      if (knownRecipient?.isKnown) {
         setStep('confirm');
       } else {
         setStep('payment-method');
@@ -93,11 +96,14 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
     }
   }, [recipientMethod, recipient]);
 
-  // Debounced recipient resolver — checks if the entered phone/email is a Zippie user
+  // Debounced recipient resolver. Backend expects a Paynow ID; if the user
+  // typed an email or phone we'll get a 400 and treat the recipient as
+  // unknown, which surfaces a "needs Paynow ID" path. Phase 2 swaps this
+  // for a dedicated Paynow ID input.
   useEffect(() => {
     const trimmed = recipient.trim();
     if (!trimmed) {
-      setZippieUser(null);
+      setKnownRecipient(null);
       return;
     }
 
@@ -105,13 +111,14 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
     const handle = setTimeout(async () => {
       try {
         const result = await paymentsAPI.resolveRecipient(trimmed);
-        setZippieUser({
-          isZippieUser: result.is_zippie_user,
+        setKnownRecipient({
+          isKnown: result.is_known_user,
           displayName: result.display_name,
+          paynowId: result.paynow_id,
         });
       } catch (err) {
         logger.error('Recipient resolution failed', err);
-        setZippieUser(null);
+        setKnownRecipient(null);
       } finally {
         setIsResolvingRecipient(false);
       }
@@ -123,10 +130,10 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
   const handleSend = async () => {
     setIsProcessing(true);
 
-    // Instant path: recipient is a Zippie user → internal ledger transfer.
-    // The backend returns a completed transaction in <50ms. No Paynow, no
-    // processing screen, go straight to success.
-    if (zippieUser?.isZippieUser) {
+    // Known-recipient path: backend resolves the recipient's Paynow ID
+    // from our user table and routes via the rails adapter. Phase 2
+    // rebrands this UX (no more "instant" framing).
+    if (knownRecipient?.isKnown) {
       try {
         await paymentsAPI.createTransaction({
           transaction_type: 'sent',
@@ -134,8 +141,8 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
           currency: selectedAccount?.currency || 'USD',
           recipient,
           description,
-          payment_method: 'zippie_internal',
           account_id: selectedAccount?.id,
+          recipient_paynow_id: knownRecipient.paynowId,
         });
 
         await onSuccess({
@@ -146,7 +153,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
           description,
           account: selectedAccount?.name,
           fee: 0,
-          paymentMethod: 'zippie_internal',
+          paymentMethod: 'paynow_rails',
         });
       } catch (error: any) {
         logger.error('Instant transfer failed', error);
@@ -421,7 +428,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
                 Checking recipient...
               </p>
             )}
-            {!isResolvingRecipient && zippieUser?.isZippieUser && (
+            {!isResolvingRecipient && knownRecipient?.isKnown && (
               <div
                 className='flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 animate-fade-in'
                 role='status'
@@ -433,7 +440,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
                 />
                 <div className='flex-1'>
                   <p className='text-sm font-medium text-green-800 dark:text-green-300'>
-                    {zippieUser.displayName || 'Zippie user'}
+                    {knownRecipient.displayName || 'Zippie user'}
                   </p>
                   <p className='text-xs text-green-700 dark:text-green-400'>
                     Instant transfer — no fees
@@ -441,7 +448,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
                 </div>
               </div>
             )}
-            {!isResolvingRecipient && zippieUser && !zippieUser.isZippieUser && (
+            {!isResolvingRecipient && knownRecipient && !knownRecipient.isKnown && (
               <div
                 className='flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 animate-fade-in'
                 role='status'
@@ -628,7 +635,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
   );
 
   const renderConfirmation = () => {
-    const isInstant = zippieUser?.isZippieUser === true;
+    const isInstant = knownRecipient?.isKnown === true;
     const fee = isInstant ? 0 : parseFloat(amount) * 0.01;
     const total = parseFloat(amount) + fee;
     const channelLabel =
@@ -666,7 +673,7 @@ export function SendMoney({ accounts, onBack, onSuccess }: SendMoneyProps) {
               <div className='flex justify-between'>
                 <span className='text-gray-600'>To</span>
                 <span className='font-medium'>
-                  {isInstant && zippieUser?.displayName ? zippieUser.displayName : recipient}
+                  {isInstant && knownRecipient?.displayName ? knownRecipient.displayName : recipient}
                 </span>
               </div>
               {isInstant ? (

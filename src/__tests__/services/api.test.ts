@@ -31,6 +31,7 @@ describe('API Service', () => {
         phone: '+1234567890',
         full_name: 'Test User',
         password: 'TestPassword123',
+        paynow_id: 'pn-test-01',
       });
 
       // api.ts wraps headers in `new Headers(...)`, so inspect via .get() rather
