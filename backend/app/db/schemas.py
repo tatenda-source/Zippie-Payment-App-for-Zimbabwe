@@ -17,12 +17,37 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    paynow_id: str  # required: every user must link a Paynow ID at registration
+    tenant_slug: Optional[str] = None  # optional during pivot; required once Phase 3 ships
 
 
 class UserResponse(UserBase):
     id: int
     is_active: bool
     is_verified: bool
+    paynow_id: Optional[str] = None
+    tenant_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Tenant Schemas
+class TenantBase(BaseModel):
+    slug: str
+    name: str
+    brand_config: Optional[dict] = None
+
+
+class TenantCreate(TenantBase):
+    paynow_integration_id: Optional[str] = None
+    paynow_integration_key: Optional[str] = None
+
+
+class TenantResponse(TenantBase):
+    id: int
+    is_active: bool
     created_at: datetime
 
     class Config:
@@ -64,6 +89,7 @@ class TransactionBase(BaseModel):
 
 class TransactionCreate(TransactionBase):
     account_id: Optional[int] = None
+    recipient_paynow_id: Optional[str] = None  # required for "sent"; resolved via /resolve-recipient otherwise
 
 
 class TransactionResponse(TransactionBase):
@@ -71,6 +97,9 @@ class TransactionResponse(TransactionBase):
     user_id: int
     account_id: Optional[int]
     sender: Optional[str]
+    sender_paynow_id: Optional[str] = None
+    recipient_paynow_id: Optional[str] = None
+    paynow_transfer_ref: Optional[str] = None
     status: str
     fee: float
     transaction_metadata: Optional[dict] = None
@@ -103,14 +132,12 @@ class TransactionStatusResponse(BaseModel):
     paynow_reference: Optional[str] = None
 
 
-class PaynowTopupRequest(BaseModel):
-    """Top-up: pull money from EcoCash/OneMoney into a Zippie wallet."""
-
-    amount: float
-    payment_channel: str  # "ecocash", "onemoney", or "web"
-    phone_number: Optional[str] = None  # Required for ecocash/onemoney
-    account_id: Optional[int] = None  # Which wallet to credit (default: primary)
-    description: Optional[str] = None
+# Recipient resolution
+class ResolveRecipientResponse(BaseModel):
+    paynow_id: str
+    is_known_user: bool  # true if recipient is registered in our local DB
+    display_name: Optional[str] = None
+    tenant_id: Optional[int] = None
 
 
 # Auth Schemas

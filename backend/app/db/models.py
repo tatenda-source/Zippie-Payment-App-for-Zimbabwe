@@ -22,12 +22,44 @@ from sqlalchemy.sql import func
 from app.db.database import Base
 
 
+class Tenant(Base):
+    """A tenant (business / SACCO / school / merchant) using Paynow Connect.
+
+    Each tenant ships their own branded P2P / payouts app powered by
+    Paynow under the hood. Per-tenant Paynow merchant credentials let one
+    backend route transfers through different Paynow accounts depending
+    on which tenant the user belongs to.
+
+    Phase 1 stores integration_key in plain text. Phase 3 wraps it with KMS
+    before any tenant is onboarded for real money movement.
+    """
+
+    __tablename__ = "tenants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    paynow_integration_id = Column(String, nullable=True)
+    paynow_integration_key = Column(String, nullable=True)  # TODO(phase-3): KMS-wrap
+    brand_config = Column(JSON, nullable=True)  # logo_url, primary_color, app_name, etc.
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    users = relationship("User", back_populates="tenant")
+
+
 class User(Base):
     """User model.
 
     role is one of: "user" | "admin" | "support" | "ops" | "finance".
     Stored as a plain String (not a DB enum) so adding a new role is a code
     change only — no ALTER TYPE migration dance.
+
+    paynow_id is the user's primary financial identity — every P2P transfer
+    is routed by Paynow ID. Nullable in the schema so the migration can run
+    before all users have linked; new registrations are required to provide
+    one (validated at the API layer).
     """
 
     __tablename__ = "users"
@@ -40,12 +72,19 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     role = Column(String, default="user", nullable=False, index=True)
+    paynow_id = Column(String, nullable=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
     accounts = relationship("Account", back_populates="owner", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
+    tenant = relationship("Tenant", back_populates="users")
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "paynow_id", name="uq_users_tenant_paynow_id"),
+    )
 
 
 class Account(Base):
@@ -70,18 +109,28 @@ class Account(Base):
 
 
 class Transaction(Base):
-    """Transaction model for P2P payments"""
+    """Transaction record for an A2A push on Paynow rails.
+
+    Post-pivot semantics: this is an audit / receipt record for a Paynow
+    transfer. It does NOT cause balance changes in the local ledger.
+    paynow_transfer_ref is the authoritative identifier for reconciliation
+    and dispute resolution; it is unique once set.
+    """
 
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
     transaction_type = Column(String, nullable=False)  # sent, received, request
     amount = Column(Numeric(18, 2), nullable=False)
     currency = Column(String, default="USD", nullable=False)
     recipient = Column(String, nullable=False, index=True)
     sender = Column(String, nullable=True, index=True)
+    sender_paynow_id = Column(String, nullable=True, index=True)
+    recipient_paynow_id = Column(String, nullable=True, index=True)
+    paynow_transfer_ref = Column(String, nullable=True, unique=True, index=True)
     description = Column(Text, nullable=True)
     status = Column(String, default="pending", nullable=False)  # completed, pending, failed
     payment_method = Column(String, nullable=True)
